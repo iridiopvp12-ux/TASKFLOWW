@@ -6,6 +6,7 @@
     <title>TaskFlow Enterprise (Package Edition)</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dashboard-tv.css">
 </head>
 <body>
 
@@ -124,24 +125,21 @@
                         <span class="metric-label">Executando</span>
                     </div>
 
-                    <div class="urgent-list-container">
-                        <h3 style="margin-top:0; color: #fca5a5;">Prioridade Alta / Atrasados</h3>
-                        <div id="urgent-task-list"></div>
-                    </div>
-
                     <div class="chart-container">
                         <h3 class="chart-title">Produtividade (7 Dias)</h3>
-                        <canvas id="chart-weekly-canvas"></canvas>
+                        <div class="chart-wrapper"><canvas id="chart-weekly-canvas"></canvas></div>
                     </div>
                     <div class="chart-container">
                         <h3 class="chart-title">Por Membro (Concluídas)</h3>
-                        <canvas id="chart-users-canvas"></canvas>
+                        <div class="chart-wrapper"><canvas id="chart-users-canvas"></canvas></div>
                     </div>
-                    <div class="chart-container" style="grid-column: span 2;">
-                        <h3 class="chart-title">Demandas por Empresa (Top 5)</h3>
-                        <div style="height: 300px; display:flex; justify-content:center;">
-                            <canvas id="chart-companies-canvas"></canvas>
-                        </div>
+                    <div class="chart-container">
+                        <h3 class="chart-title">Demandas (Top 5)</h3>
+                        <div class="chart-wrapper"><canvas id="chart-companies-canvas"></canvas></div>
+                    </div>
+                    <div class="urgent-list-container">
+                        <h3 style="margin-top:0; color: #fca5a5; font-size:1.1rem;">Atenção Necessária</h3>
+                        <div id="urgent-task-list"></div>
                     </div>
                 </div>
             </div>
