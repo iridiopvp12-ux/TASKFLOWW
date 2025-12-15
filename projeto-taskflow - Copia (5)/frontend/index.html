@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskFlow Enterprise (Package Edition)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css"> 
+</head>
+<body>
+
+    <div id="toast-container"></div>
+
+    <div id="login-screen">
+        <div class="login-card">
+            <div class="login-title">TaskFlow 5.17</div>
+            <p style="color: #94a3b8; margin-bottom: 30px;">Ambiente Local (Mobile Ready)</p>
+            <div id="login-list"></div> 
+            <p id="loading-txt" style="color:var(--primary); display:none;">Conectando ao servidor...</p>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-login-pass" style="z-index: 2000;">
+        <div class="modal" style="width: 350px;">
+            <div class="modal-header">
+                <h3 id="login-user-name">Olá!</h3>
+                <button class="btn-close" onclick="closeModal('modal-login-pass')">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="color:#94a3b8; font-size:0.9rem; margin-bottom:15px;">Senha de acesso:</p>
+                <div class="form-group">
+                    <input type="password" id="login-input-pass" class="form-input" placeholder="••••••" onkeyup="if(event.key==='Enter') performLogin()">
+                </div>
+                <p id="login-error" style="color:var(--danger); font-size:0.8rem; display:none;">Senha incorreta!</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-save" onclick="performLogin()">Entrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-container">
+        
+        <aside id="main-sidebar">
+            <div class="logo">
+                <div style="width: 32px; height: 32px; background: var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight:bold; color:white;">TF</div>
+                <span>TaskFlow</span>
+            </div>
+            <div class="nav-item active" id="nav-dash" onclick="switchView('dash')">📊 Dashboard</div>
+            <div class="nav-item" id="nav-board" onclick="switchView('board')">📋 Kanban</div>
+            <div class="nav-item" id="nav-audit" onclick="switchView('audit')">🛡️ Auditoria</div> 
+            <div class="nav-item" id="nav-company" onclick="switchView('company')">🏢 Empresas</div>
+            <div class="nav-item" id="nav-settings" onclick="switchView('settings')">⚙️ Configurações</div>
+
+            <div class="user-profile">
+                <div class="avatar" id="current-avatar">U</div>
+                <div style="flex: 1;">
+                    <div id="current-name" style="font-size: 0.9rem; font-weight: 600;">User</div>
+                    <div id="current-role" style="font-size: 0.75rem; color: var(--text-muted);">Role</div>
+                </div>
+                <button class="btn-logout" onclick="logout()" title="Sair">⏻</button>
+            </div>
+        </aside>
+
+        <main id="main-content">
+            
+            <div id="view-board" class="view-section">
+                <div class="top-bar">
+                    <div class="page-title"><h2>Quadro de Tarefas</h2><p>Gestão visual.</p></div>
+                    <div class="top-actions">
+                        <input type="text" id="task-search" class="custom-input" style="width:200px" placeholder="🔍 Tarefa ou Empresa..." onkeyup="renderBoard()">
+                        <div id="filter-user-container" style="width:200px"><select id="filter-user-select" class="custom-select" onchange="renderBoard()"></select></div>
+                        <button id="btn-add-task" class="btn-primary" onclick="openCreateModal()"><span>+</span> Nova</button>
+                    </div>
+                </div>
+                <div class="board-wrapper">
+                    <div class="board">
+                        <div class="column" id="col-todo">
+                            <div class="col-header" style="border-bottom: 3px solid var(--danger);">PENDENTE <span class="count" id="count-todo">0</span></div>
+                            <div class="task-list" id="todo" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+                        </div>
+                        <div class="column" id="col-doing">
+                            <div class="col-header" style="border-bottom: 3px solid var(--prio-med);">EM ANDAMENTO <span class="count" id="count-doing">0</span></div>
+                            <div class="task-list" id="doing" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+                        </div>
+                        <div class="column" id="col-done">
+                            <div class="col-header" style="border-bottom: 3px solid var(--prio-low);">CONCLUÍDO <span class="count" id="count-done">0</span></div>
+                            <div class="task-list" id="done" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-dash" class="view-section active" style="overflow-y: auto;">
+                <div class="top-bar">
+                    <div class="page-title"><h2>Dashboard</h2><p>Visão geral da operação.</p></div>
+                    <button class="btn-secondary" onclick="document.getElementById('main-sidebar').classList.toggle('collapsed')">📺 Modo TV</button>
+                </div>
+                <div class="dashboard-grid">
+                    <div class="metric-card"><span class="metric-val" id="dash-total">0</span><span class="metric-label">Total</span></div>
+                    <div class="metric-card" onclick="goToKanban('done')">
+                        <span class="metric-val" style="color: var(--prio-low);" id="dash-done">0</span>
+                        <span class="metric-label">Concluídas</span>
+                    </div>
+                    <div class="metric-card" onclick="goToKanban('todo')">
+                        <span class="metric-val" style="color: var(--danger);" id="dash-todo">0</span>
+                        <span class="metric-label">Pendentes</span>
+                    </div>
+                    <div class="metric-card" onclick="goToKanban('doing')">
+                        <span class="metric-val" style="color: var(--prio-med);" id="dash-doing">0</span>
+                        <span class="metric-label">Executando</span>
+                    </div>
+                    
+                    <div class="urgent-list-container">
+                        <h3 style="margin-top:0; color: #fca5a5;">Prioridade Alta / Atrasados</h3>
+                        <div id="urgent-task-list"></div>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <h3 class="chart-title">Produtividade (7 Dias)</h3>
+                        <div class="css-chart" id="chart-weekly"></div>
+                    </div>
+                    <div class="chart-container">
+                        <h3 class="chart-title">Por Membro (Total)</h3>
+                        <div class="css-chart" id="chart-users"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="view-audit" class="view-section">
+                <div class="top-bar">
+                    <div class="page-title"><h2>Central de Auditoria</h2><p>Controle de Desempenho e Histórico.</p></div>
+                    <div class="top-actions">
+                        <button class="btn-secondary" onclick="exportAuditCSV()">📥 Exportar CSV</button>
+                    </div>
+                </div>
+                
+                <div class="settings-container"> 
+                    <div class="audit-stats-grid">
+                        <div class="stat-card stat-primary">
+                            <h3>Total no Período</h3>
+                            <div class="value" id="kpi-total">0</div>
+                            <div class="desc">Tarefas processadas</div>
+                        </div>
+                        <div class="stat-card stat-success">
+                            <h3>Concluídas</h3>
+                            <div class="value" id="kpi-done">0</div>
+                            <div class="desc">100% Finalizadas</div>
+                        </div>
+                        <div class="stat-card stat-warning">
+                            <h3>Eficiência</h3>
+                            <div class="value" id="kpi-eff">0%</div>
+                            <div class="desc">Entregas no prazo</div>
+                        </div>
+                    </div>
+
+                    <div class="audit-filters-bar">
+                        <div class="filter-group" style="flex: 2; min-width: 200px;">
+                            <label>🔍 Buscar Tarefa</label>
+                            <input type="text" id="audit-search-text" class="form-input" placeholder="Digite o nome da tarefa..." onkeyup="if(event.key==='Enter') renderAuditData(1)">
+                        </div>
+                        <div class="filter-group"><label>📅 Data Início</label><input type="date" id="audit-date-start" class="form-input"></div>
+                        <div class="filter-group"><label>📅 Data Fim</label><input type="date" id="audit-date-end" class="form-input"></div>
+                        <div class="filter-group"><label>👤 Colaborador</label><select id="filter-audit-user" class="form-input"></select></div>
+                        <div class="filter-group"><label>🏢 Empresa</label><select id="filter-audit-company" class="form-input"></select></div>
+                        <button class="btn-primary" style="margin-bottom: 2px;" onclick="renderAuditData(1)">🔍 Filtrar</button>
+                    </div>
+
+                    <div class="section-header">
+                        <span class="section-title" id="audit-title-count">Resultados</span>
+                    </div>
+
+                    <div class="audit-table-header">
+                        <div>TAREFA / DESCRIÇÃO</div>
+                        <div>EMPRESA</div>
+                        <div>RESPONSÁVEL / DATA</div>
+                        <div style="text-align: right;">STATUS</div>
+                    </div>
+                    
+                    <div id="audit-list-container" class="data-list" style="gap: 0;"></div>
+                    <div id="audit-pagination-controls" style="display: flex; justify-content: center; margin: 30px 0;"></div>
+                </div>
+            </div>
+            
+            <div id="view-company" class="view-section">
+                <div class="top-bar">
+                    <div class="page-title"><h2>Cadastro de Empresas</h2><p>Gerencie clientes e fluxos.</p></div>
+                    <div class="top-actions">
+                        <button class="btn-secondary" onclick="openStdTaskManager()">⚙️ Gerenciar Padrões</button>
+                        <input type="text" id="company-search-input" class="custom-input" style="width:200px" placeholder="🔍 Buscar empresa..." onkeyup="renderCompanies()">
+                        <button class="btn-primary" onclick="openCompanyModal()">+ Nova Empresa</button>
+                    </div>
+                </div>
+                <div class="company-container"><div id="company-list" class="data-list"></div></div>
+            </div>
+
+            <div id="view-settings" class="view-section">
+                <div class="top-bar">
+                    <div class="page-title"><h2>Configurações</h2><p>Gestão de Equipe.</p></div>
+                </div>
+                <div class="settings-container">
+                    <div class="section-header">
+                        <span class="section-title">👥 Gestão de Equipe</span>
+                        <button class="btn-primary" onclick="openUserModal()">+ Novo Usuário</button>
+                    </div>
+                    <div id="user-list-settings" class="data-list"></div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="modal-create">
+        <div class="modal">
+            <div class="modal-header"><h2>Nova Tarefa</h2><button class="btn-close" onclick="closeModal('modal-create')">×</button></div>
+            <div class="modal-body">
+                <div style="background: rgba(59, 130, 246, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <div class="form-group"><label>1. Empresa</label><select id="create-company-select" class="form-input" onchange="loadTemplatesForCompany()"><option value="">-- Interna --</option></select></div>
+                    <div class="form-group" style="margin-bottom:0;"><label>2. Modelo</label><select id="create-template-select" class="form-input" onchange="applyTemplate()"><option value="">-- Manual --</option></select></div>
+                </div>
+                <div class="form-group"><label>Título</label><input type="text" id="input-desc" class="form-input"></div>
+                <div class="form-group"><label>Prazo</label><input type="date" id="input-date" class="form-input"></div>
+                <div class="form-group"><label>Responsável</label><select id="input-assignee" class="form-input"></select></div>
+                <div class="form-group"><label>Prioridade</label><select id="input-prio" class="form-input"><option value="Alta">Alta</option><option value="Média" selected>Média</option><option value="Baixa">Baixa</option></select></div>
+                
+                <div class="form-group">
+                    <label style="color:var(--primary);">Repetição Automática</label>
+                    <select id="input-recurrence" class="form-input">
+                        <option value="none">Não repetir (Apenas uma vez)</option>
+                        <option value="daily">Diário (Todo dia)</option>
+                        <option value="weekly">Semanal (Toda semana neste dia)</option>
+                        <option value="monthly">Mensal (Todo mês neste dia)</option>
+                        <option value="fortnightly">Quinzenal (A cada 15 dias)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer"><button class="btn-save" onclick="saveTask()">Criar Tarefa</button></div>
+        </div>
+    </div>
+
+<div class="modal-overlay" id="modal-details">
+        <div class="modal">
+            <div class="modal-header"><h2 id="detail-title-display">Detalhes</h2><button class="btn-close" onclick="closeModal('modal-details')">×</button></div>
+            <div class="modal-body">
+                <p id="detail-company-display" style="font-size:0.8rem; color:var(--primary); font-weight:bold; margin-bottom:10px;">-</p>
+                
+                <div style="display:flex; gap:15px; margin-bottom:20px; align-items: flex-end;">
+                    <div style="flex: 1;">
+                        <label style="font-size:0.75rem; color:#94a3b8; display:block; margin-bottom:4px;">Responsável (Delegar)</label>
+                        <select id="detail-assignee-select" class="form-input" style="padding: 6px;" onchange="delegateTask()"></select>
+                    </div>
+                    <div style="width: 100px;">
+                        <span style="font-size:0.75rem; color:#94a3b8; display:block; margin-bottom:4px;">Prioridade</span>
+                        <div id="detail-prio-display" class="badge"></div>
+                    </div>
+                </div>
+                <p id="detail-date-display" style="background:#334155; padding:8px; border-radius:6px;">📅 -</p>
+                <div class="checklist-container">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>CHECKLIST</span><span id="detail-progress">0%</span></div>
+                    <div id="subtask-list"></div>
+                    <div style="display:flex; gap:10px; margin-top:15px;"><input type="text" id="new-subtask-input" class="form-input" placeholder="Nova etapa..."><button class="btn-primary" onclick="addSubtask()">+</button></div>
+                </div>
+            </div>
+            <div class="modal-footer"><button id="btn-delete-task" class="btn-danger-outline" onclick="deleteCurrentTask()">Excluir</button></div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="modal-company">
+        <div class="modal" style="width: 800px; max-width: 95%;">
+            <div class="modal-header">
+                <h2>Gerador de Pacote (Empresa + Tarefas)</h2>
+                <button class="btn-close" onclick="closeModal('modal-company')">×</button>
+            </div>
+            <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
+                
+                <h4 style="color:var(--primary); border-bottom:1px solid var(--border); padding-bottom:5px;">1. Dados da Empresa</h4>
+                <div style="display: flex; gap: 15px; margin-top: 10px;">
+                    <div class="form-group" style="flex: 2;">
+                        <label>Nome da Empresa</label>
+                        <input type="text" id="comp-name" class="form-input" placeholder="Razão Social / Nome Fantasia">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Responsável Padrão</label>
+                        <select id="comp-default-assignee" class="form-input"></select>
+                    </div>
+                </div>
+
+                <h4 style="color:var(--primary); border-bottom:1px solid var(--border); padding-bottom:5px; margin-top:30px;">
+                    2. Montar Pacote de Tarefas
+                </h4>
+                
+                <div style="background: rgba(59, 130, 246, 0.05); padding: 15px; border-radius: 8px; border: 1px dashed var(--border);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <label style="color:#60a5fa; font-weight:bold;">⚡ Selecionar Padrão (Template)</label>
+                        <select id="comp-standard-task" class="form-input" style="width: 60%;" onchange="fillStandardTask()">
+                            <option value="">-- Manual (Em branco) --</option>
+                        </select>
+                    </div>
+
+                    <div style="display:flex; gap:10px; margin-bottom: 10px;">
+                        <div style="flex:2;">
+                            <label>Título da Tarefa</label>
+                            <input type="text" id="comp-task-desc" class="form-input">
+                        </div>
+                        <div style="flex:1;">
+                            <label>Vencimento</label>
+                            <input type="date" id="comp-task-date" class="form-input">
+                        </div>
+                        <div style="flex:1;">
+                            <label>Recorrência</label>
+                            <select id="comp-task-recurrence" class="form-input">
+                                <option value="none">Uma vez</option>
+                                <option value="monthly" selected>Mensal</option>
+                                <option value="weekly">Semanal</option>
+                                <option value="fortnightly">Quinzenal</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-size: 0.8rem; color: #94a3b8;">Checklist (Subtarefas)</label>
+                        <div id="comp-temp-subtasks-list" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:5px;"></div>
+                        <div style="display:flex; gap:5px;">
+                            <input type="text" id="comp-new-subtask-input" class="form-input" placeholder="Add item..." style="font-size: 0.85rem;" onkeyup="if(event.key==='Enter') addTempSubtask()">
+                            <button class="btn-secondary" onclick="addTempSubtask()" style="padding: 5px 10px;">+</button>
+                        </div>
+                    </div>
+
+                    <button class="btn-primary" style="width: 100%; background-color: var(--success); border-color: var(--success);" onclick="addTaskToPackage()">
+                        ⬇️ Adicionar ao Pacote
+                    </button>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 5px;">
+                        <label>Itens no Pacote (Novas)</label>
+                        <span id="pkg-count" style="font-size: 0.8rem; color: var(--primary);">0 tarefas</span>
+                    </div>
+                    <div id="package-list-render" class="data-list" style="min-height: 100px; max-height: 200px; overflow-y: auto; background: rgba(0,0,0,0.2);">
+                        <div style="text-align:center; padding: 20px; color: var(--text-muted);">Pacote vazio. Adicione tarefas acima.</div>
+                    </div>
+                </div>
+
+                <div id="section-existing-tasks" style="display: none; margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
+                    <h4 style="color:var(--text-primary); margin-bottom: 10px;">3. Tarefas Ativas (Já Cadastradas)</h4>
+                    <div id="existing-tasks-list" class="data-list" style="background: rgba(255, 255, 255, 0.03);"></div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button class="btn-save" onclick="saveCompany()">💾 Salvar Empresa e Gerar Tarefas</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-std-tasks">
+        <div class="modal" style="width:700px;">
+            <div class="modal-header"><h2>Gerenciar Tarefas Padrão</h2><button class="btn-close" onclick="closeModal('modal-std-tasks')">×</button></div>
+            <div class="modal-body">
+                <div id="std-task-list-container"></div>
+                <hr style="border-color:var(--border); margin:20px 0;">
+                <div style="background:rgba(0,0,0,0.2); padding:20px; border-radius:8px;">
+                    <h4 style="color:white; margin:0 0 15px 0;">Novo Padrão</h4>
+                    <div class="form-group"><label>Título Padrão</label><input type="text" id="std-title" class="form-input"></div>
+                    <div class="form-group"><label>Frequência Padrão</label>
+                        <select id="std-rec" class="form-input">
+                            <option value="none">Nenhuma</option>
+                            <option value="monthly">Mensal</option>
+                            <option value="weekly">Semanal</option>
+                            <option value="fortnightly">Quinzenal</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Subtarefas (Checklist) - Separe por vírgula se quiser colar várias</label>
+                        <textarea id="std-subs-text" class="form-input" style="height:80px;" placeholder="Ex: Baixar Notas, Gerar DAS, Enviar Boleto..."></textarea>
+                    </div>
+                    <button class="btn-primary" onclick="saveStdTask()">Salvar Padrão</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-templates">
+        <div class="modal" style="width:700px;">
+            <div class="modal-header"><h2 id="template-modal-title">Modelos</h2><button class="btn-close" onclick="closeModal('modal-templates')">×</button></div>
+            <div class="modal-body">
+                <div id="template-list-container" style="margin-bottom:30px;"></div><hr style="border-color:var(--border); margin:20px 0;">
+                <h4 style="color:white; margin-bottom:15px;">Criar / Editar Modelo</h4>
+                <div style="background:rgba(0,0,0,0.2); padding:20px; border-radius:8px;">
+                    <div class="form-group"><label>Nome</label><input type="text" id="tpl-name" class="form-input"></div>
+                    <div class="form-group"><label>Etapas</label><div id="tpl-subtasks-container"></div><button class="btn-secondary" style="width:100%; margin-top:10px; font-size:0.8rem;" onclick="addSubtaskToTemplateInput()">+ Adicionar Etapa</button></div>
+                    <button class="btn-primary" onclick="saveTemplate()">Salvar Modelo</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-user">
+        <div class="modal" style="width:400px;">
+            <div class="modal-header"><h2>Novo Usuário</h2><button class="btn-close" onclick="closeModal('modal-user')">×</button></div>
+            <div class="modal-body">
+                <div class="form-group"><label>Nome Completo</label><input type="text" id="user-name" class="form-input"></div>
+                <div class="form-group"><label>Cargo</label><input type="text" id="user-role-desc" class="form-input"></div>
+                <div class="form-group"><label>Iniciais</label><input type="text" id="user-initials" class="form-input" maxlength="2"></div>
+                <div class="form-group"><label>Senha</label><input type="password" id="user-pass-new" class="form-input"></div>
+                <div class="form-group"><label>Permissão</label><select id="user-perm" class="form-input"><option value="user">Equipe</option><option value="admin">Admin</option></select></div>
+            </div>
+            <div class="modal-footer"><button class="btn-save" onclick="saveUser()">Cadastrar</button></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/kanban.js"></script>
+    <script src="js/tasks.js"></script>
+    <script src="js/companies.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/audit.js"></script> 
+    <script src="js/main.js"></script>
+</body>
+</html>
