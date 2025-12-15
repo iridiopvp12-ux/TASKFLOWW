@@ -10,6 +10,9 @@ async function loadAppData() {
     const [u, c, t] = await Promise.all([fetchAPI('/users'), fetchAPI('/companies'), fetchAPI('/tasks')]);
     if (u) USERS = u; if (c) COMPANIES = c; if (t) TASKS = t;
 
+    // Carrega notificações se logado
+    if (currentUser) loadNotifications();
+
     renderAll();
     updateSelects();
 
@@ -161,9 +164,15 @@ function connectWebSocket() {
     socket.onmessage = (event) => {
         if (event.data === "update") {
             const isModalOpen = document.querySelector('.modal-overlay.open');
-            if (currentUser && !isModalOpen) {
-                // Pequeno delay para garantir que o banco já commitou
+            // Se tiver notificação específica, atualiza sempre
+            if (currentUser) {
                 setTimeout(() => loadAppData(), 100);
+            }
+        } else if (event.data.startsWith("notification:")) {
+            const targetId = parseInt(event.data.split(':')[1]);
+            if (currentUser && currentUser.id === targetId) {
+                showToast("🔔 Nova Notificação!", "success");
+                loadNotifications();
             }
         }
     };
