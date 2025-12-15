@@ -1,0 +1,114 @@
+
+/*
+   TV DASHBOARD OVERRIDES
+   Force 100vh layout with no scroll
+*/
+#view-dash {
+    display: none;
+    height: 100vh;
+    overflow: hidden; /* No scroll */
+    padding: 0;
+    flex-direction: column;
+}
+
+#view-dash.active {
+    display: flex;
+}
+
+#view-dash .top-bar {
+    flex: 0 0 auto; /* Fixed height header */
+    padding: 15px 30px;
+    background: var(--bg-body);
+}
+
+/* Main Grid Container */
+.dashboard-grid {
+    flex: 1; /* Take remaining height */
+    display: grid;
+    grid-template-rows: auto 1fr; /* Metrics Top, Charts Bottom */
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    padding: 20px 30px 30px 30px; /* Adjust padding */
+    height: 100%;
+    max-width: none; /* Full width */
+    margin: 0;
+}
+
+/* Metric Cards (Top Row) */
+.metric-card {
+    height: 100%;
+    padding: 20px;
+    justify-content: center;
+}
+.metric-val {
+    font-size: 4rem; /* Bigger for TV */
+    margin: 5px 0;
+}
+.metric-label {
+    font-size: 1rem;
+}
+
+/* Charts Area (Bottom Row) */
+.chart-container {
+    height: 100%; /* Fill the grid cell */
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    overflow: hidden;
+}
+
+.chart-title {
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    flex: 0 0 auto;
+}
+
+/* Chart Canvas Wrapper */
+.chart-wrapper {
+    flex: 1;
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+/* Urgent List - Remove or Move?
+   For TV Mode, we might want to hide the urgent list if it takes too much space,
+   OR make it one of the bottom columns.
+   Let's replace the first chart column (Productivity) with Urgent List? No, productivity is key.
+   Let's replace "Metric Cards" with a sidebar? No.
+
+   Plan:
+   Row 1 (20% height): Metrics (4 cards)
+   Row 2 (80% height):
+      Col 1: Productivity (Line)
+      Col 2: Users (Bar)
+      Col 3: Companies (Doughnut)
+      Col 4: Urgent List (The list container)
+*/
+
+.dashboard-grid {
+    grid-template-rows: 140px 1fr; /* Fixed height for metrics */
+}
+
+/* Reset column spans from previous CSS */
+.chart-container { grid-column: span 1 !important; }
+.urgent-list-container {
+    grid-column: span 1 !important;
+    height: 100%;
+    overflow: hidden; /* Hide overflow */
+    display: flex;
+    flex-direction: column;
+}
+#urgent-task-list {
+    flex: 1;
+    overflow-y: auto; /* Scroll ONLY inside this list if needed */
+}
+
+/* Hide scrollbar for TV look */
+#urgent-task-list::-webkit-scrollbar { display: none; }
+
+/* Adjust Chart Container styles to ensure they don't overflow */
+.chart-container canvas {
+    max-height: 100%;
+    max-width: 100%;
+}
