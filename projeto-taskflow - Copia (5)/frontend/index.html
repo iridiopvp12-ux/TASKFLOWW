@@ -108,7 +108,16 @@
             <div id="view-dash" class="view-section active" style="overflow-y: auto;">
                 <div class="top-bar">
                     <div class="page-title"><h2>Dashboard</h2><p>Visão geral da operação.</p></div>
-                    <button class="btn-secondary" onclick="document.getElementById('main-sidebar').classList.toggle('collapsed')">📺 Modo TV</button>
+                    <div class="top-actions">
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <input type="date" id="dash-date-start" class="custom-input" style="width:130px; font-size:0.8rem;">
+                            <span style="color:var(--text-muted)">até</span>
+                            <input type="date" id="dash-date-end" class="custom-input" style="width:130px; font-size:0.8rem;">
+                            <button class="btn-primary" onclick="renderDashboard()" style="padding: 8px 15px;">🔍 Filtrar</button>
+                        </div>
+                        <button class="btn-secondary" onclick="window.print()">🖨️ Relatório</button>
+                        <button class="btn-secondary" onclick="document.getElementById('main-sidebar').classList.toggle('collapsed')">📺 Modo TV</button>
+                    </div>
                 </div>
                 <div class="dashboard-grid">
                     <div class="metric-card"><span class="metric-val" id="dash-total">0</span><span class="metric-label">Total</span></div>

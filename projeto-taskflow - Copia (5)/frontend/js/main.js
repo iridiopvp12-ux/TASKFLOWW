@@ -144,9 +144,39 @@ async function verificarLimpezaDiaria() {
 
 
 loadInitialData();
-setInterval(() => {
-    const isModalOpen = document.querySelector('.modal-overlay.open');
-    if (currentUser && !isModalOpen) {
-        loadAppData();
-    }
-}, 5000);
+
+// --- REALTIME (WEBSOCKET) ---
+let socket = null;
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = `${protocol}://${window.location.host}/ws`;
+
+    socket = new WebSocket(wsUrl);
+
+    socket.onopen = () => {
+        console.log("🟢 WebSocket Conectado");
+    };
+
+    socket.onmessage = (event) => {
+        if (event.data === "update") {
+            const isModalOpen = document.querySelector('.modal-overlay.open');
+            if (currentUser && !isModalOpen) {
+                // Pequeno delay para garantir que o banco já commitou
+                setTimeout(() => loadAppData(), 100);
+            }
+        }
+    };
+
+    socket.onclose = () => {
+        console.log("🔴 WebSocket Desconectado. Tentando reconectar...");
+        setTimeout(connectWebSocket, 3000); // Tenta reconectar em 3s
+    };
+
+    socket.onerror = (err) => {
+        console.error("WebSocket Error:", err);
+        socket.close();
+    };
+}
+
+// Inicia conexão
+connectWebSocket();

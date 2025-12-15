@@ -6,13 +6,45 @@ let chartUsersInstance = null;
 let chartCompaniesInstance = null;
 
 function renderDashboard() {
-    // 1. Atualiza Cartões (KPIs)
-    document.getElementById('dash-total').innerText = TASKS.length;
-    document.getElementById('dash-done').innerText = TASKS.filter(t=> ['done', 'archived'].includes(t.status)).length;
-    document.getElementById('dash-todo').innerText = TASKS.filter(t=>t.status==='todo').length;
-    document.getElementById('dash-doing').innerText = TASKS.filter(t=>t.status==='doing').length;
+    // FILTROS DE DATA
+    const startInput = document.getElementById('dash-date-start');
+    const endInput = document.getElementById('dash-date-end');
 
-    // 2. Lista de Urgentes (Alta Prioridade ou Atrasadas)
+    // Se vazio, define padrão (últimos 30 dias)
+    if (!startInput.value) {
+        const d = new Date(); d.setDate(d.getDate() - 30);
+        startInput.value = d.toISOString().split('T')[0];
+    }
+    if (!endInput.value) {
+        endInput.value = new Date().toISOString().split('T')[0];
+    }
+
+    const startDate = startInput.value;
+    const endDate = endInput.value;
+
+    // Filtra tarefas pela data de CONCLUSÃO (se feito) ou CRIAÇÃO/VENCIMENTO?
+    // Dashboard geralmente olha para produtividade no período.
+    // Vamos considerar:
+    // - Para KPIs de STATUS (Total, Pendente, Doing): Estado ATUAL (snapshot), independente de data?
+    //   OU filtra tarefas criadas/vencendo no período?
+    //   Geralmente "Total" é total do banco.
+    //   Mas "Concluídas" deve respeitar o filtro de data (Produtividade do mês).
+    // Vamos filtrar APENAS para os gráficos e contagem de concluídas. O resto mostra snapshot atual.
+
+    // Filtro para Concluídas no período
+    const filteredDone = TASKS.filter(t =>
+        ['done', 'archived'].includes(t.status) &&
+        t.completedAt >= startDate &&
+        t.completedAt <= endDate
+    );
+
+    // 1. Atualiza Cartões (KPIs)
+    document.getElementById('dash-total').innerText = TASKS.length; // Total Geral
+    document.getElementById('dash-done').innerText = filteredDone.length; // Concluídas no Período
+    document.getElementById('dash-todo').innerText = TASKS.filter(t=>t.status==='todo').length; // Atual
+    document.getElementById('dash-doing').innerText = TASKS.filter(t=>t.status==='doing').length; // Atual
+
+    // 2. Lista de Urgentes (Alta Prioridade ou Atrasadas) - Snapshot Atual
     const uList = document.getElementById('urgent-task-list');
     uList.innerHTML = '';
     const urgentTasks = TASKS.filter(t => t.status !== 'done' && t.status !== 'archived' && (t.prio === 'Alta' || t.dueDate < new Date().toISOString().split('T')[0]));
@@ -36,28 +68,37 @@ function renderDashboard() {
     }
 
     // 3. Renderiza Gráficos Chart.js
-    renderCharts();
+    renderCharts(startDate, endDate, filteredDone);
 }
 
-function renderCharts() {
+function renderCharts(startDate, endDate, filteredDone) {
     Chart.defaults.color = '#94a3b8';
     Chart.defaults.borderColor = '#334155';
     Chart.defaults.font.family = "'Inter', sans-serif";
     Chart.defaults.font.size = 14; // Bigger font for TV
 
-    // --- GRÁFICO 1: PRODUTIVIDADE (7 DIAS) ---
+    // --- GRÁFICO 1: PRODUTIVIDADE (DIÁRIA NO PERÍODO) ---
     const ctxWeekly = document.getElementById('chart-weekly-canvas').getContext('2d');
     const labelsWeek = [];
     const dataWeek = [];
 
-    for(let i=6; i>=0; i--) {
-        const d = new Date(); d.setDate(new Date().getDate() - i);
-        const dateStr = d.toISOString().split('T')[0];
-        const dayName = d.toLocaleDateString('pt-BR', { weekday: 'short' });
+    // Gera labels de dias entre start e end
+    let curr = new Date(startDate);
+    const end = new Date(endDate);
+
+    // Se o intervalo for muito grande (> 31 dias), agrupar por MÊS? Por enquanto dia a dia.
+    // Limite visual: se > 14 dias, mostra só os dias com dados ou simplifica?
+    // Vamos iterar dia a dia.
+
+    while (curr <= end) {
+        const dateStr = curr.toISOString().split('T')[0];
+        const dayName = curr.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 
         labelsWeek.push(dayName);
-        const count = TASKS.filter(t => (t.status === 'done' || t.status === 'archived') && t.completedAt && t.completedAt.startsWith(dateStr)).length;
+        const count = filteredDone.filter(t => t.completedAt && t.completedAt.startsWith(dateStr)).length;
         dataWeek.push(count);
+
+        curr.setDate(curr.getDate() + 1);
     }
 
     if (chartWeeklyInstance) chartWeeklyInstance.destroy();
@@ -87,7 +128,7 @@ function renderCharts() {
         }
     });
 
-    // --- GRÁFICO 2: POR MEMBRO (CONCLUÍDAS) ---
+    // --- GRÁFICO 2: POR MEMBRO (CONCLUÍDAS NO PERÍODO) ---
     const ctxUsers = document.getElementById('chart-users-canvas').getContext('2d');
     const labelsUsers = [];
     const dataUsers = [];
@@ -95,7 +136,8 @@ function renderCharts() {
 
     USERS.forEach(u => {
         labelsUsers.push(u.name.split(' ')[0]);
-        const c = TASKS.filter(t => t.assignedTo == u.id && (t.status === 'done' || t.status === 'archived')).length;
+        // Usa filteredDone que já respeita a data
+        const c = filteredDone.filter(t => t.assignedTo == u.id).length;
         dataUsers.push(c);
         colorsUsers.push(u.color || '#64748b');
     });
