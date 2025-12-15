@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TaskFlow Enterprise (Package Edition)</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/styles.css"> 
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 
@@ -15,7 +15,7 @@
         <div class="login-card">
             <div class="login-title">TaskFlow 5.17</div>
             <p style="color: #94a3b8; margin-bottom: 30px;">Ambiente Local (Mobile Ready)</p>
-            <div id="login-list"></div> 
+            <div id="login-list"></div>
             <p id="loading-txt" style="color:var(--primary); display:none;">Conectando ao servidor...</p>
         </div>
     </div>
@@ -40,7 +40,7 @@
     </div>
 
     <div id="app-container">
-        
+
         <aside id="main-sidebar">
             <div class="logo">
                 <div style="width: 32px; height: 32px; background: var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight:bold; color:white;">TF</div>
@@ -48,7 +48,8 @@
             </div>
             <div class="nav-item active" id="nav-dash" onclick="switchView('dash')">📊 Dashboard</div>
             <div class="nav-item" id="nav-board" onclick="switchView('board')">📋 Kanban</div>
-            <div class="nav-item" id="nav-audit" onclick="switchView('audit')">🛡️ Auditoria</div> 
+            <div class="nav-item" id="nav-calendar" onclick="switchView('calendar')">📅 Calendário</div>
+            <div class="nav-item" id="nav-audit" onclick="switchView('audit')">🛡️ Auditoria</div>
             <div class="nav-item" id="nav-company" onclick="switchView('company')">🏢 Empresas</div>
             <div class="nav-item" id="nav-settings" onclick="switchView('settings')">⚙️ Configurações</div>
 
@@ -63,7 +64,19 @@
         </aside>
 
         <main id="main-content">
-            
+
+            <div id="view-calendar" class="view-section">
+                <div class="top-bar">
+                    <div class="page-title"><h2>Calendário</h2><p>Visão cronológica.</p></div>
+                    <div class="top-actions">
+                        <button class="btn-primary" onclick="openCreateModal()">+ Nova Tarefa</button>
+                    </div>
+                </div>
+                <div style="background: rgba(30, 41, 59, 0.5); padding: 20px; border-radius: 12px; height: calc(100vh - 140px); overflow: hidden;">
+                    <div id="calendar"></div>
+                </div>
+            </div>
+
             <div id="view-board" class="view-section">
                 <div class="top-bar">
                     <div class="page-title"><h2>Quadro de Tarefas</h2><p>Gestão visual.</p></div>
@@ -110,23 +123,29 @@
                         <span class="metric-val" style="color: var(--prio-med);" id="dash-doing">0</span>
                         <span class="metric-label">Executando</span>
                     </div>
-                    
+
                     <div class="urgent-list-container">
                         <h3 style="margin-top:0; color: #fca5a5;">Prioridade Alta / Atrasados</h3>
                         <div id="urgent-task-list"></div>
                     </div>
-                    
+
                     <div class="chart-container">
                         <h3 class="chart-title">Produtividade (7 Dias)</h3>
-                        <div class="css-chart" id="chart-weekly"></div>
+                        <canvas id="chart-weekly-canvas"></canvas>
                     </div>
                     <div class="chart-container">
-                        <h3 class="chart-title">Por Membro (Total)</h3>
-                        <div class="css-chart" id="chart-users"></div>
+                        <h3 class="chart-title">Por Membro (Concluídas)</h3>
+                        <canvas id="chart-users-canvas"></canvas>
+                    </div>
+                    <div class="chart-container" style="grid-column: span 2;">
+                        <h3 class="chart-title">Demandas por Empresa (Top 5)</h3>
+                        <div style="height: 300px; display:flex; justify-content:center;">
+                            <canvas id="chart-companies-canvas"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
-            
+
             <div id="view-audit" class="view-section">
                 <div class="top-bar">
                     <div class="page-title"><h2>Central de Auditoria</h2><p>Controle de Desempenho e Histórico.</p></div>
@@ -134,8 +153,8 @@
                         <button class="btn-secondary" onclick="exportAuditCSV()">📥 Exportar CSV</button>
                     </div>
                 </div>
-                
-                <div class="settings-container"> 
+
+                <div class="settings-container">
                     <div class="audit-stats-grid">
                         <div class="stat-card stat-primary">
                             <h3>Total no Período</h3>
@@ -176,12 +195,12 @@
                         <div>RESPONSÁVEL / DATA</div>
                         <div style="text-align: right;">STATUS</div>
                     </div>
-                    
+
                     <div id="audit-list-container" class="data-list" style="gap: 0;"></div>
                     <div id="audit-pagination-controls" style="display: flex; justify-content: center; margin: 30px 0;"></div>
                 </div>
             </div>
-            
+
             <div id="view-company" class="view-section">
                 <div class="top-bar">
                     <div class="page-title"><h2>Cadastro de Empresas</h2><p>Gerencie clientes e fluxos.</p></div>
@@ -210,6 +229,7 @@
         </main>
     </div>
 
+    <!-- Modals (unchanged in structure, just hiding them in this block for brevity if needed, but keeping them for correctness) -->
     <div class="modal-overlay" id="modal-create">
         <div class="modal">
             <div class="modal-header"><h2>Nova Tarefa</h2><button class="btn-close" onclick="closeModal('modal-create')">×</button></div>
@@ -222,7 +242,7 @@
                 <div class="form-group"><label>Prazo</label><input type="date" id="input-date" class="form-input"></div>
                 <div class="form-group"><label>Responsável</label><select id="input-assignee" class="form-input"></select></div>
                 <div class="form-group"><label>Prioridade</label><select id="input-prio" class="form-input"><option value="Alta">Alta</option><option value="Média" selected>Média</option><option value="Baixa">Baixa</option></select></div>
-                
+
                 <div class="form-group">
                     <label style="color:var(--primary);">Repetição Automática</label>
                     <select id="input-recurrence" class="form-input">
@@ -243,7 +263,7 @@
             <div class="modal-header"><h2 id="detail-title-display">Detalhes</h2><button class="btn-close" onclick="closeModal('modal-details')">×</button></div>
             <div class="modal-body">
                 <p id="detail-company-display" style="font-size:0.8rem; color:var(--primary); font-weight:bold; margin-bottom:10px;">-</p>
-                
+
                 <div style="display:flex; gap:15px; margin-bottom:20px; align-items: flex-end;">
                     <div style="flex: 1;">
                         <label style="font-size:0.75rem; color:#94a3b8; display:block; margin-bottom:4px;">Responsável (Delegar)</label>
@@ -271,7 +291,7 @@
                 <button class="btn-close" onclick="closeModal('modal-company')">×</button>
             </div>
             <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
-                
+
                 <h4 style="color:var(--primary); border-bottom:1px solid var(--border); padding-bottom:5px;">1. Dados da Empresa</h4>
                 <div style="display: flex; gap: 15px; margin-top: 10px;">
                     <div class="form-group" style="flex: 2;">
@@ -287,7 +307,7 @@
                 <h4 style="color:var(--primary); border-bottom:1px solid var(--border); padding-bottom:5px; margin-top:30px;">
                     2. Montar Pacote de Tarefas
                 </h4>
-                
+
                 <div style="background: rgba(59, 130, 246, 0.05); padding: 15px; border-radius: 8px; border: 1px dashed var(--border);">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                         <label style="color:#60a5fa; font-weight:bold;">⚡ Selecionar Padrão (Template)</label>
@@ -409,6 +429,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
 
     <script src="js/config.js"></script>
     <script src="js/api.js"></script>
@@ -418,7 +439,8 @@
     <script src="js/tasks.js"></script>
     <script src="js/companies.js"></script>
     <script src="js/dashboard.js"></script>
-    <script src="js/audit.js"></script> 
+    <script src="js/calendar.js"></script>
+    <script src="js/audit.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

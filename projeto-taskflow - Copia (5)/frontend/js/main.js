@@ -9,13 +9,13 @@ async function loadInitialData() {
 async function loadAppData() {
     const [u, c, t] = await Promise.all([fetchAPI('/users'), fetchAPI('/companies'), fetchAPI('/tasks')]);
     if (u) USERS = u; if (c) COMPANIES = c; if (t) TASKS = t;
-    
-    renderAll(); 
-    updateSelects(); 
-    
-    verificarTarefasAutomaticas(); 
+
+    renderAll();
+    updateSelects();
+
+    verificarTarefasAutomaticas();
     verificarLimpezaDiaria();
-    
+
     // 🛡️ NOVO: Condicional para Módulo de Auditoria (Apenas Admin)
     const navAudit = document.getElementById('nav-audit');
     if (navAudit) {
@@ -30,6 +30,12 @@ function renderAll() {
     renderCompanies();
     renderSettings();
     updateSelects();
+    // Renderiza o calendário se estiver visível, ou só deixa pronto
+    if (typeof renderCalendar === 'function') {
+         // Se estiver na aba calendario, renderiza
+         const calView = document.getElementById('view-calendar');
+         if (calView && calView.classList.contains('active')) renderCalendar();
+    }
 }
 
 function updateSelects() {
@@ -39,7 +45,7 @@ function updateSelects() {
     const fs = document.getElementById('filter-user-select'); if(fs) fs.innerHTML = `<option value="all">Todos</option>` + userOpts;
     const compOpts = `<option value="">-- Nenhuma / Interna --</option>` + COMPANIES.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
     const ccs = document.getElementById('create-company-select'); if(ccs) ccs.innerHTML = compOpts;
-    
+
     // 🛡️ NOVO: Atualiza o filtro de usuários na aba Auditoria
     if (currentUser && currentUser.role === 'admin') {
         setupAuditFilters();
@@ -49,12 +55,13 @@ function updateSelects() {
 function switchView(v) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    
+
     document.getElementById(`view-${v}`).classList.add('active');
     document.getElementById(`nav-${v}`).classList.add('active');
-    
+
     if (v === 'dash') renderDashboard();
-    
+    if (v === 'calendar' && typeof renderCalendar === 'function') renderCalendar();
+
     // 🛡️ NOVO: Hook para inicializar a Auditoria
     if (v === 'audit' && currentUser.role === 'admin') {
         initializeAuditModule();
@@ -65,10 +72,10 @@ function switchView(v) {
 async function verificarTarefasAutomaticas() {
     if (!TASKS || TASKS.length === 0) return;
     const hoje = new Date();
-    const diaMesHoje = hoje.getDate();    
-    const diaSemanaHoje = hoje.getDay(); 
+    const diaMesHoje = hoje.getDate();
+    const diaSemanaHoje = hoje.getDay();
     const dataHojeFormatada = hoje.toISOString().split('T')[0];
-    const mesAtualFormatado = dataHojeFormatada.substring(0, 7); 
+    const mesAtualFormatado = dataHojeFormatada.substring(0, 7);
 
     let mudouAlgo = false;
 
@@ -79,26 +86,26 @@ async function verificarTarefasAutomaticas() {
         let jaExisteNoPeriodo = false;
 
         if (tOriginal.recurrence === 'daily') {
-            if (dataHojeFormatada > tOriginal.dueDate) deveCriar = true; 
+            if (dataHojeFormatada > tOriginal.dueDate) deveCriar = true;
             jaExisteNoPeriodo = TASKS.some(t => t.desc === tOriginal.desc && t.dueDate === dataHojeFormatada);
-        } 
+        }
         else if (tOriginal.recurrence === 'weekly') {
             if (diaSemanaHoje === tOriginal.recurrenceDay) deveCriar = true;
             jaExisteNoPeriodo = TASKS.some(t => t.desc === tOriginal.desc && t.dueDate === dataHojeFormatada);
-        } 
+        }
         else if (tOriginal.recurrence === 'monthly') {
             if (diaMesHoje >= tOriginal.recurrenceDay) {
                 deveCriar = true;
             }
-            jaExisteNoPeriodo = TASKS.some(t => 
-                t.desc === tOriginal.desc && 
+            jaExisteNoPeriodo = TASKS.some(t =>
+                t.desc === tOriginal.desc &&
                 t.dueDate.substring(0, 7) === mesAtualFormatado
             );
-        } 
+        }
         else if (tOriginal.recurrence === 'fortnightly') {
             const dataOrig = new Date(tOriginal.dueDate);
             const diffTime = Math.abs(hoje - dataOrig);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             if (diffDays > 0 && diffDays % 15 === 0) deveCriar = true;
             jaExisteNoPeriodo = TASKS.some(t => t.desc === tOriginal.desc && t.dueDate === dataHojeFormatada);
         }
@@ -106,8 +113,8 @@ async function verificarTarefasAutomaticas() {
         if (deveCriar && !jaExisteNoPeriodo) {
             await fetchAPI('/tasks', 'POST', {
                 desc: tOriginal.desc,
-                dueDate: dataHojeFormatada, 
-                assignedTo: tOriginal.assignedTo, 
+                dueDate: dataHojeFormatada,
+                assignedTo: tOriginal.assignedTo,
                 prio: tOriginal.prio,
                 companyId: tOriginal.companyId,
                 subtasks: tOriginal.subtasks.map(s => ({...s, done: false, done_by: null, done_at: null})), // Garante novos campos
@@ -137,9 +144,9 @@ async function verificarLimpezaDiaria() {
 
 
 loadInitialData();
-setInterval(() => { 
-    const isModalOpen = document.querySelector('.modal-overlay.open'); 
-    if (currentUser && !isModalOpen) { 
-        loadAppData(); 
-    } 
+setInterval(() => {
+    const isModalOpen = document.querySelector('.modal-overlay.open');
+    if (currentUser && !isModalOpen) {
+        loadAppData();
+    }
 }, 5000);
