@@ -61,7 +61,6 @@ function switchView(v) {
 
     if (v === 'dash') renderDashboard();
     if (v === 'board') renderBoard(); // Force update
-    if (v === 'focus') renderFocus(); // Force update
     if (v === 'calendar' && typeof renderCalendar === 'function') renderCalendar();
 
     // 🛡️ NOVO: Hook para inicializar a Auditoria
