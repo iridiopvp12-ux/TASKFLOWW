@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, BackgroundTasks
 from typing import Optional
 import json
 from ..database import get_db, row_to_dict
-from ..schemas import TaskCreate, StandardTaskCreate # Adicionado StandardTaskCreate
+from ..schemas import TaskCreate, StandardTaskCreate
+from ..realtime import manager
 
 router = APIRouter()
 
@@ -19,22 +20,22 @@ def get_tasks():
 # 🛡️ ROTA DE AUDITORIA
 @router.get("/audit-tasks")
 def get_audit_tasks(
-    user_id: Optional[int] = None, 
+    user_id: Optional[int] = None,
     company_id: Optional[int] = None,
-    date_start: Optional[str] = None, 
+    date_start: Optional[str] = None,
     date_end: Optional[str] = None,
     search: Optional[str] = None,
-    skip: int = 0, 
-    limit: int = 100 
+    skip: int = 0,
+    limit: int = 100
 ):
     conn = get_db(); cur = conn.cursor()
-    
+
     query_parts = []
     params = []
-    
+
     query_parts.append("t.status IN (%s, %s)")
     params.extend(['done', 'archived'])
-    
+
     if user_id is not None:
         query_parts.append("t.assigned_to = %s")
         params.append(user_id)
@@ -46,7 +47,7 @@ def get_audit_tasks(
     if date_start:
         query_parts.append("t.completed_at >= %s")
         params.append(date_start)
-    
+
     if date_end:
         query_parts.append("t.completed_at <= %s")
         params.append(date_end)
@@ -54,32 +55,32 @@ def get_audit_tasks(
     if search:
         query_parts.append("t.description ILIKE %s")
         params.append(f"%{search}%")
-        
+
     where_clause = " WHERE " + " AND ".join(query_parts) if query_parts else ""
-    
+
     main_query = f"""
-        SELECT 
-            t.id, t.description AS "desc", t.status, t.assigned_to AS "assignedTo", t.priority AS prio, 
-            t.due_date AS "dueDate", t.completed_at AS "completedAt", t.subtasks, 
-            u.name AS "userName", c.name AS "companyName" 
-        FROM tasks t 
-        LEFT JOIN users u ON t.assigned_to = u.id 
-        LEFT JOIN companies c ON t.company_id = c.id 
+        SELECT
+            t.id, t.description AS "desc", t.status, t.assigned_to AS "assignedTo", t.priority AS prio,
+            t.due_date AS "dueDate", t.completed_at AS "completedAt", t.subtasks,
+            u.name AS "userName", c.name AS "companyName"
+        FROM tasks t
+        LEFT JOIN users u ON t.assigned_to = u.id
+        LEFT JOIN companies c ON t.company_id = c.id
         {where_clause}
         ORDER BY t.completed_at DESC
         LIMIT %s OFFSET %s
     """
-    
+
     count_params = list(params)
     params.extend([limit, skip])
-    
+
     count_query = f"SELECT COUNT(t.id) FROM tasks t {where_clause}"
-    cur.execute(count_query, count_params) 
+    cur.execute(count_query, count_params)
     total_count = cur.fetchone()[0]
 
     cur.execute(main_query, params)
     res = row_to_dict(cur)
-    
+
     for t in res:
          if isinstance(t['subtasks'], str): t['subtasks'] = json.loads(t['subtasks'])
          if t['completedAt']:
@@ -87,30 +88,33 @@ def get_audit_tasks(
                 t['completedAt'] = t['completedAt'].isoformat()
             except AttributeError:
                 t['completedAt'] = str(t['completedAt'])
-            
+
     conn.close()
     return {"data": res, "total": total_count, "limit": limit, "skip": skip}
 
 @router.post("/tasks")
-def create_task(t: TaskCreate):
+def create_task(t: TaskCreate, background_tasks: BackgroundTasks):
     conn = get_db(); cur = conn.cursor()
     sub_json = json.dumps([s.model_dump() for s in t.subtasks])
     comp = int(t.companyId) if t.companyId else None
     assign = int(t.assignedTo) if t.assignedTo else None
-    
+
     cur.execute("INSERT INTO tasks (description, status, assigned_to, priority, due_date, completed_at, company_id, subtasks, recurrence, recurrence_day) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
                 (t.desc, t.status, assign, t.prio, t.dueDate, t.completedAt, comp, sub_json, t.recurrence, t.recurrenceDay))
-    
+
     tid = cur.fetchone()[0]
     conn.commit(); conn.close()
+
+    # Notifica clientes via BackgroundTasks (seguro para rotas sync)
+    background_tasks.add_task(manager.broadcast, "update")
     return {"id": tid}
 
 @router.put("/tasks/{id}")
-def update_task(id: int, t: dict = Body(...)):
+def update_task(id: int, background_tasks: BackgroundTasks, t: dict = Body(...)):
     conn = get_db(); cur = conn.cursor()
     updates = []
     params = []
-    
+
     if 'status' in t:
         updates.append("status=%s"); params.append(t['status'])
     if 'completedAt' in t:
@@ -129,15 +133,19 @@ def update_task(id: int, t: dict = Body(...)):
         params.append(id)
         cur.execute(sql, params)
         conn.commit()
-    
+
     conn.close()
+    # Notifica clientes
+    background_tasks.add_task(manager.broadcast, "update")
     return {"success": True}
 
 @router.delete("/tasks/{id}")
-def del_task(id: int):
+def del_task(id: int, background_tasks: BackgroundTasks):
     conn = get_db(); cur = conn.cursor()
     cur.execute("DELETE FROM tasks WHERE id=%s", (id,))
     conn.commit(); conn.close()
+    # Notifica clientes
+    background_tasks.add_task(manager.broadcast, "update")
     return {"success": True}
 
 # --- ROTAS DE PADRÕES (STANDARDS) ---

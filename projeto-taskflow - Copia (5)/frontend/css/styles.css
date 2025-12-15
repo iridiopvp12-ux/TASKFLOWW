@@ -221,3 +221,16 @@ button.btn-danger-outline { background:transparent; color:var(--danger); border:
     .comp-actions { width: 100%; }
     .btn-icon-action { flex: 1; }
 }
+
+/* PRINT STYLES (RELATÓRIO) */
+@media print {
+    body, #view-dash { background: white; color: black; height: auto; overflow: visible; display: block; }
+    aside, .top-actions, .btn-secondary, .urgent-list-container { display: none !important; }
+    main { margin: 0; padding: 0; }
+    .dashboard-grid { display: block; padding: 20px; }
+    .metric-card { border: 1px solid #ccc; margin-bottom: 20px; color: black; background: #f8fafc; }
+    .metric-val { color: black; }
+    .chart-container { page-break-inside: avoid; border: 1px solid #ddd; background: white; margin-bottom: 30px; height: 350px; }
+    canvas { width: 100% !important; height: 100% !important; }
+    /* Ajuste cores Chart.js para impressão seria ideal no JS, mas CSS ajuda */
+}

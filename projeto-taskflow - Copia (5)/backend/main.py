@@ -1,11 +1,12 @@
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles # Import moved to top
 from fastapi.responses import FileResponse # Import moved to top
 import os
 
 from backend.database import init_db
+from backend.realtime import manager
 
 import backend.routers.auth as auth
 import backend.routers.users as users
@@ -33,6 +34,20 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(companies.router)
 app.include_router(tasks.router)
+
+# 3.1 Rota WebSocket (Realtime)
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Mantém a conexão viva e pode receber pings do cliente se necessário
+            data = await websocket.receive_text()
+            # Opcional: Se o cliente enviar algo, podemos processar aqui
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception:
+        manager.disconnect(websocket)
 
 # 4. Configuração do Frontend (PRECISA SER ANTES DO IF MAIN)
 # Serve os arquivos CSS e JS
