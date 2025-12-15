@@ -113,8 +113,8 @@ async function verificarTarefasAutomaticas() {
                 subtasks: tOriginal.subtasks.map(s => ({...s, done: false, done_by: null, done_at: null})), // Garante novos campos
                 status: "todo",
                 completedAt: null,
-                recurrence: tOriginal.recurrence,
-                recurrenceDay: tOriginal.recurrenceDay
+                recurrence: 'none',
+                recurrenceDay: null
             });
             mudouAlgo = true;
         }
