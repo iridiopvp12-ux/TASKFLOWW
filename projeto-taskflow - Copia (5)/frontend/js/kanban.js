@@ -2,7 +2,7 @@ function renderBoard() {
     ['todo', 'doing', 'done'].forEach(id => document.getElementById(id).innerHTML = '');
     let filtered = TASKS;
     filtered = filtered.filter(t => t.status !== 'archived');
-    
+
     const search = document.getElementById('task-search').value.toLowerCase();
     if(search) {
         filtered = filtered.filter(t => {
@@ -12,7 +12,7 @@ function renderBoard() {
             return taskMatch || compMatch;
         });
     }
-    
+
     if (currentUser.role === 'user') {
         filtered = filtered.filter(t => t.assignedTo == currentUser.id || !t.assignedTo);
     } else {
@@ -36,7 +36,7 @@ function createCard(task) {
     const total = task.subtasks.length;
     const pct = total > 0 ? (done/total)*100 : 0;
     const isLate = task.status !== 'done' && task.dueDate < new Date().toISOString().split('T')[0];
-    
+
     let recIcon = '';
     if (task.recurrence === 'daily') recIcon = '<span title="Diário" style="margin-left:5px">🔁</span>';
     if (task.recurrence === 'weekly') recIcon = '<span title="Semanal" style="margin-left:5px">📅</span>';
@@ -45,14 +45,14 @@ function createCard(task) {
 
     const html = `
     <div class="card p-${task.prio} ${total>0?'has-subtasks':''} ${isLate?'overdue':''}" id="${task.id}" draggable="true" ondragstart="drag(event)" onclick="openDetails(${task.id})">
-        
+
         <div class="card-company-header">
              <div class="card-company-name">${c ? c.name : 'INTERNO'}</div>
              <span class="badge b-${getPrioClass(task.prio)}">${task.prio}</span>
         </div>
 
         <h3>${task.desc} ${recIcon}</h3>
-        
+
         <div class="card-date ${isLate?'late-text':''}"><span>📅 ${formatDate(task.dueDate)}</span></div>
         <div class="mini-progress"><div class="mini-progress-bar" style="width:${pct}%"></div></div>
         <div class="card-meta">
@@ -69,17 +69,36 @@ async function drop(ev) {
     const id = parseInt(ev.dataTransfer.getData("text"));
     document.querySelectorAll('.task-list').forEach(el => el.classList.remove('drag-over'));
     const task = TASKS.find(t => t.id === id);
-    
+
     if(task) {
         const newStatus = ev.currentTarget.id;
+        if (task.status === newStatus) return;
+
+        // --- OPTIMISTIC UI ---
+        const card = document.getElementById(id);
+        if (card) {
+            ev.currentTarget.appendChild(card);
+
+            const oldCol = document.getElementById('count-' + task.status);
+            const newCol = document.getElementById('count-' + newStatus);
+            if(oldCol) oldCol.innerText = Math.max(0, parseInt(oldCol.innerText) - 1);
+            if(newCol) newCol.innerText = parseInt(newCol.innerText) + 1;
+        }
+
         let newDate = task.completedAt;
         if (newStatus === 'done' && task.status !== 'done') {
             newDate = new Date().toISOString().split('T')[0];
         } else if (newStatus !== 'done') {
             newDate = null;
         }
-        
+
+        // Update Local State immediately
+        task.status = newStatus;
+        task.completedAt = newDate;
+
+        // Sync with Server
         await fetchAPI(`/tasks/${id}`, 'PUT', { status: newStatus, completedAt: newDate, subtasks: task.subtasks });
-        await loadAppData();
+
+        // No explicit reload, wait for WebSocket to confirm (or silent success)
     }
 }
