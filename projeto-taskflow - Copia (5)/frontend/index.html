@@ -55,6 +55,14 @@
             <div class="nav-item" id="nav-settings" onclick="switchView('settings')">⚙️ Configurações</div>
 
             <div class="user-profile">
+                <div style="position:relative; cursor:pointer; margin-right:10px;" onclick="toggleNotifPanel()">
+                    <span style="font-size:1.5rem;">🔔</span>
+                    <span id="notif-badge" style="position:absolute; top:-5px; right:-5px; background:var(--danger); color:white; border-radius:50%; width:18px; height:18px; font-size:0.7rem; display:flex; justify-content:center; align-items:center; display:none;">0</span>
+                    <div id="notif-panel" style="display:none; position:absolute; bottom:40px; left:0; width:300px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:10px; z-index:100; box-shadow:0 5px 15px rgba(0,0,0,0.5);">
+                        <div style="font-weight:bold; margin-bottom:10px; border-bottom:1px solid var(--border); padding-bottom:5px;">Notificações</div>
+                        <div id="notif-list" style="max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+                    </div>
+                </div>
                 <div class="avatar" id="current-avatar">U</div>
                 <div style="flex: 1;">
                     <div id="current-name" style="font-size: 0.9rem; font-weight: 600;">User</div>
@@ -287,6 +295,15 @@
                     <div id="subtask-list"></div>
                     <div style="display:flex; gap:10px; margin-top:15px;"><input type="text" id="new-subtask-input" class="form-input" placeholder="Nova etapa..."><button class="btn-primary" onclick="addSubtask()">+</button></div>
                 </div>
+
+                <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:15px;">
+                    <h4 style="color:var(--text-muted); margin-bottom:10px;">💬 Comentários</h4>
+                    <div id="comments-list" style="background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; max-height:150px; overflow-y:auto; margin-bottom:10px; font-size:0.9rem;"></div>
+                    <div style="display:flex; gap:10px;">
+                        <input type="text" id="new-comment-input" class="form-input" placeholder="Escreva algo..." onkeyup="if(event.key==='Enter') postComment()">
+                        <button class="btn-secondary" onclick="postComment()">Enviar</button>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer"><button id="btn-delete-task" class="btn-danger-outline" onclick="deleteCurrentTask()">Excluir</button></div>
         </div>
@@ -447,6 +464,7 @@
     <script src="js/companies.js"></script>
     <script src="js/dashboard.js"></script>
     <script src="js/calendar.js"></script>
+    <script src="js/notifications.js"></script>
     <script src="js/audit.js"></script>
     <script src="js/main.js"></script>
 </body>

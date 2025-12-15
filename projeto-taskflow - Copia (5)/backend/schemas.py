@@ -11,6 +11,11 @@ class Subtask(BaseModel):
     done_by: Optional[int] = None
     done_at: Optional[str] = None
 
+class Comment(BaseModel):
+    text: str
+    author_id: int
+    created_at: str
+
 class UserLogin(BaseModel):
     id: int
     password: str

@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Optional
 # ==========================================
 DB_CONFIG = {
     "user": "postgres",
-    "password": "admin",  
+    "password": "admin",
     "host": "localhost",
     "port": 5432,
     "database": "taskflow"
@@ -43,38 +43,47 @@ def init_db():
     try:
         conn = get_db()
         cur = conn.cursor()
-        
+
         if RESET_DB_ON_START:
             print(">>> ☢️ MODO RESET ATIVADO: Apagando tabelas antigas...")
             cur.execute("DROP TABLE IF EXISTS users CASCADE")
             cur.execute("DROP TABLE IF EXISTS companies CASCADE")
             cur.execute("DROP TABLE IF EXISTS tasks CASCADE")
-            cur.execute("DROP TABLE IF EXISTS standard_tasks CASCADE") # Limpa padrões também
+            cur.execute("DROP TABLE IF EXISTS standard_tasks CASCADE")
+            cur.execute("DROP TABLE IF EXISTS notifications CASCADE")
             conn.commit()
             print(">>> Tabelas antigas removidas com sucesso.")
 
         print(">>> Criando novas tabelas...")
         cur.execute("""CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY, 
-            name TEXT, 
-            role TEXT, 
-            "role_desc" TEXT,  
-            initials TEXT, 
-            color TEXT, 
+            id SERIAL PRIMARY KEY,
+            name TEXT,
+            role TEXT,
+            "role_desc" TEXT,
+            initials TEXT,
+            color TEXT,
             password_hash TEXT
         )""")
-        
+
         cur.execute("""CREATE TABLE IF NOT EXISTS companies (
-            id SERIAL PRIMARY KEY, name TEXT, default_assignee INTEGER, 
+            id SERIAL PRIMARY KEY, name TEXT, default_assignee INTEGER,
             templates JSONB DEFAULT '[]'::jsonb
         )""")
-        
+
         cur.execute("""CREATE TABLE IF NOT EXISTS tasks (
-            id SERIAL PRIMARY KEY, description TEXT, due_date TEXT, 
-            assigned_to INTEGER, priority TEXT, company_id INTEGER, 
-            status TEXT, completed_at TEXT, recurrence TEXT, 
+            id SERIAL PRIMARY KEY, description TEXT, due_date TEXT,
+            assigned_to INTEGER, priority TEXT, company_id INTEGER,
+            status TEXT, completed_at TEXT, recurrence TEXT,
             recurrence_day INTEGER, subtasks JSONB DEFAULT '[]'::jsonb
         )""")
+
+        # Add comments column if not exists
+        try:
+            cur.execute("ALTER TABLE tasks ADD COLUMN comments JSONB DEFAULT '[]'::jsonb")
+            conn.commit()
+            print(">>> Coluna 'comments' adicionada.")
+        except Exception:
+            conn.rollback() # Ignora erro se já existe
 
         # --- NOVA TABELA PARA OS PADRÕES ---
         cur.execute("""CREATE TABLE IF NOT EXISTS standard_tasks (
@@ -83,7 +92,17 @@ def init_db():
             recurrence TEXT,
             subtasks JSONB DEFAULT '[]'::jsonb
         )""")
-        
+
+        # --- NOVA TABELA PARA NOTIFICAÇÕES ---
+        cur.execute("""CREATE TABLE IF NOT EXISTS notifications (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER,
+            text TEXT,
+            is_read BOOLEAN DEFAULT FALSE,
+            created_at TEXT,
+            task_id INTEGER
+        )""")
+
         conn.commit()
 
         # Cria admin se não existir
@@ -91,14 +110,14 @@ def init_db():
         if not cur.fetchone():
             h = hash_pass("123")
             # Inserção também usa aspas duplas no nome da coluna
-            cur.execute("INSERT INTO users (name, role, \"role_desc\", initials, color, password_hash) VALUES (%s, %s, %s, %s, %s, %s)", 
+            cur.execute("INSERT INTO users (name, role, \"role_desc\", initials, color, password_hash) VALUES (%s, %s, %s, %s, %s, %s)",
                         ("Administrador", "admin", "Diretoria", "AD", "#ef4444", h))
             conn.commit()
             print(">>> ✅ ADMIN RECRIADO: Senha '123'")
-        
+
         cur.close()
         conn.close()
         print(">>> SISTEMA ONLINE E LIMPO! 🚀")
-        
+
     except Exception as e:
         print(f"❌ ERRO GRAVE NO BANCO: {e}")

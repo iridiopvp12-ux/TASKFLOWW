@@ -4,16 +4,19 @@ import json
 from ..database import get_db, row_to_dict
 from ..schemas import TaskCreate, StandardTaskCreate
 from ..realtime import manager
+from datetime import datetime
 
 router = APIRouter()
 
 @router.get("/tasks")
 def get_tasks():
     conn = get_db(); cur = conn.cursor()
-    cur.execute('SELECT t.id, t.description as "desc", t.status, t.assigned_to as "assignedTo", t.priority as prio, t.due_date as "dueDate", t.completed_at as "completedAt", t.company_id as "companyId", t.subtasks, t.recurrence, t.recurrence_day as "recurrenceDay", c.name as "companyName", u.name as "userName" FROM tasks t LEFT JOIN companies c ON t.company_id = c.id LEFT JOIN users u ON t.assigned_to = u.id ORDER BY t.id DESC')
+    cur.execute('SELECT t.id, t.description as "desc", t.status, t.assigned_to as "assignedTo", t.priority as prio, t.due_date as "dueDate", t.completed_at as "completedAt", t.company_id as "companyId", t.subtasks, t.comments, t.recurrence, t.recurrence_day as "recurrenceDay", c.name as "companyName", u.name as "userName" FROM tasks t LEFT JOIN companies c ON t.company_id = c.id LEFT JOIN users u ON t.assigned_to = u.id ORDER BY t.id DESC')
     res = row_to_dict(cur)
     for t in res:
          if isinstance(t['subtasks'], str): t['subtasks'] = json.loads(t['subtasks'])
+         if t['comments'] is None: t['comments'] = []
+         elif isinstance(t['comments'], str): t['comments'] = json.loads(t['comments'])
     conn.close()
     return res
 
@@ -103,10 +106,19 @@ def create_task(t: TaskCreate, background_tasks: BackgroundTasks):
                 (t.desc, t.status, assign, t.prio, t.dueDate, t.completedAt, comp, sub_json, t.recurrence, t.recurrenceDay))
 
     tid = cur.fetchone()[0]
+
+    # Notificação se atribuído
+    if assign:
+        msg = f"Nova tarefa: {t.desc}"
+        now = datetime.now().isoformat()
+        cur.execute("INSERT INTO notifications (user_id, text, created_at, task_id) VALUES (%s, %s, %s, %s)", (assign, msg, now, tid))
+
     conn.commit(); conn.close()
 
-    # Notifica clientes via BackgroundTasks (seguro para rotas sync)
+    # Notifica clientes via BackgroundTasks
     background_tasks.add_task(manager.broadcast, "update")
+    if assign: background_tasks.add_task(manager.broadcast, f"notification:{assign}")
+
     return {"id": tid}
 
 @router.put("/tasks/{id}")
@@ -114,6 +126,12 @@ def update_task(id: int, background_tasks: BackgroundTasks, t: dict = Body(...))
     conn = get_db(); cur = conn.cursor()
     updates = []
     params = []
+
+    # Check old assignment for notification logic
+    cur.execute("SELECT assigned_to, description FROM tasks WHERE id=%s", (id,))
+    row = cur.fetchone()
+    old_assign = row[0] if row else None
+    desc = row[1] if row else "Tarefa"
 
     if 'status' in t:
         updates.append("status=%s"); params.append(t['status'])
@@ -132,11 +150,58 @@ def update_task(id: int, background_tasks: BackgroundTasks, t: dict = Body(...))
         sql = f"UPDATE tasks SET {', '.join(updates)} WHERE id=%s"
         params.append(id)
         cur.execute(sql, params)
+
+        # Notificação de mudança de dono
+        if 'assignedTo' in t:
+            new_assign = int(t['assignedTo']) if t['assignedTo'] else None
+            if new_assign and new_assign != old_assign:
+                msg = f"Atribuída a você: {desc}"
+                now = datetime.now().isoformat()
+                cur.execute("INSERT INTO notifications (user_id, text, created_at, task_id) VALUES (%s, %s, %s, %s)", (new_assign, msg, now, id))
+                background_tasks.add_task(manager.broadcast, f"notification:{new_assign}")
+
         conn.commit()
 
     conn.close()
-    # Notifica clientes
     background_tasks.add_task(manager.broadcast, "update")
+    return {"success": True}
+
+@router.post("/tasks/{id}/comments")
+def add_comment(id: int, background_tasks: BackgroundTasks, payload: dict = Body(...)):
+    # payload: { text: "...", authorId: 123 }
+    conn = get_db(); cur = conn.cursor()
+
+    # Get current comments and assignee
+    cur.execute("SELECT comments, assigned_to, description FROM tasks WHERE id=%s", (id,))
+    row = cur.fetchone()
+    if not row: return {"error": "Not found"}
+
+    current_comments = row[0]
+    assignee = row[1]
+    desc = row[2]
+
+    if current_comments is None: current_comments = []
+    elif isinstance(current_comments, str): current_comments = json.loads(current_comments)
+
+    new_comment = {
+        "text": payload['text'],
+        "author_id": payload['authorId'],
+        "created_at": datetime.now().isoformat()
+    }
+    current_comments.append(new_comment)
+
+    cur.execute("UPDATE tasks SET comments=%s WHERE id=%s", (json.dumps(current_comments), id))
+
+    # Notify assignee if author is different
+    if assignee and assignee != payload['authorId']:
+        msg = f"Novo comentário em: {desc}"
+        now = datetime.now().isoformat()
+        cur.execute("INSERT INTO notifications (user_id, text, created_at, task_id) VALUES (%s, %s, %s, %s)", (assignee, msg, now, id))
+        background_tasks.add_task(manager.broadcast, f"notification:{assignee}")
+
+    conn.commit(); conn.close()
+
+    background_tasks.add_task(manager.broadcast, "update") # To refresh chat UI for others
     return {"success": True}
 
 @router.delete("/tasks/{id}")

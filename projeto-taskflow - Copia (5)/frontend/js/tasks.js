@@ -102,9 +102,53 @@ function openDetails(id) {
     }
 
     renderSubtasks(t);
+    renderComments(t); // NEW
     const modal = document.getElementById('modal-details');
     modal.style.display = 'flex';
     setTimeout(() => modal.classList.add('open'), 10);
+}
+
+// --- COMENTÁRIOS ---
+function renderComments(task) {
+    const list = document.getElementById('comments-list');
+    list.innerHTML = '';
+    if (!task.comments || task.comments.length === 0) {
+        list.innerHTML = '<div style="color:#64748b; text-align:center;">Nenhum comentário.</div>';
+        return;
+    }
+    task.comments.forEach(c => {
+        const u = USERS.find(x => x.id === c.author_id);
+        const name = u ? u.name : 'Desconhecido';
+        const date = new Date(c.created_at).toLocaleString('pt-BR');
+
+        list.insertAdjacentHTML('beforeend', `
+            <div style="margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--primary);">
+                    <span>${name}</span>
+                    <span>${date}</span>
+                </div>
+                <div style="color:#e2e8f0; margin-top:2px;">${c.text}</div>
+            </div>
+        `);
+    });
+    list.scrollTop = list.scrollHeight;
+}
+
+async function postComment() {
+    const input = document.getElementById('new-comment-input');
+    const txt = input.value;
+    if (!txt) return;
+
+    const res = await fetchAPI(`/tasks/${currentOpenTaskId}/comments`, 'POST', { text: txt, authorId: currentUser.id });
+    if (res && res.success) {
+        input.value = '';
+        // Atualiza localmente para feedback instantâneo (Optimistic seria melhor, mas aqui recarregamos)
+        // O WebSocket vai atualizar tudo, mas se quisermos ver AGORA:
+        const t = TASKS.find(x => x.id === currentOpenTaskId);
+        if (!t.comments) t.comments = [];
+        t.comments.push({ text: txt, author_id: currentUser.id, created_at: new Date().toISOString() });
+        renderComments(t);
+    }
 }
 
 // DELEGAÇÃO FUNCIONAL

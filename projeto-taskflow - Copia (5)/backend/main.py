@@ -12,6 +12,7 @@ import backend.routers.auth as auth
 import backend.routers.users as users
 import backend.routers.companies as companies
 import backend.routers.tasks as tasks
+import backend.routers.notifications as notifications
 
 app = FastAPI()
 
@@ -34,6 +35,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(companies.router)
 app.include_router(tasks.router)
+app.include_router(notifications.router)
 
 # 3.1 Rota WebSocket (Realtime)
 @app.websocket("/ws")
