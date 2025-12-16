@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/dashboard-tv.css">
+    <link rel="stylesheet" href="css/chat.css">
 </head>
 <body>
 
@@ -48,6 +49,7 @@
                 <span>TaskFlow</span>
             </div>
             <div class="nav-item active" id="nav-dash" onclick="switchView('dash')">📊 Dashboard</div>
+            <div class="nav-item" id="nav-chat" onclick="switchView('chat')">💬 Chat Interno</div>
             <div class="nav-item" id="nav-board" onclick="switchView('board')">📋 Kanban</div>
             <div class="nav-item" id="nav-calendar" onclick="switchView('calendar')">📅 Calendário</div>
             <div class="nav-item" id="nav-audit" onclick="switchView('audit')">🛡️ Auditoria</div>
@@ -73,6 +75,33 @@
         </aside>
 
         <main id="main-content">
+
+            <div id="view-chat" class="view-section" style="overflow: hidden;">
+                <div style="display: flex; height: 100%;">
+                    <!-- Chat Sidebar -->
+                    <div style="width: 260px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column;">
+                        <div style="padding: 20px; border-bottom: 1px solid var(--border); font-weight: 700;">Conversas</div>
+                        <div id="chat-list" style="flex: 1; overflow-y: auto;">
+                            <!-- Items populated by JS -->
+                        </div>
+                    </div>
+                    <!-- Chat Main -->
+                    <div style="flex: 1; display: flex; flex-direction: column; background: var(--bg-body);">
+                        <div class="top-bar" style="padding: 15px 25px;">
+                            <div class="page-title"><h2 id="chat-header-title">Global</h2><p id="chat-header-desc">Todos os membros</p></div>
+                        </div>
+                        <div id="chat-messages" style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px;">
+                            <!-- Messages -->
+                        </div>
+                        <div style="padding: 20px; background: var(--bg-sidebar); border-top: 1px solid var(--border); display: flex; gap: 10px; align-items: center;">
+                            <label for="chat-file-upload" style="cursor: pointer; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; margin: 0;">📎</label>
+                            <input type="file" id="chat-file-upload" style="display: none;" onchange="uploadChatFile()">
+                            <input type="text" id="chat-input" class="form-input" style="flex: 1;" placeholder="Digite sua mensagem..." onkeyup="if(event.key==='Enter') sendChatMessage()">
+                            <button class="btn-primary" onclick="sendChatMessage()">Enviar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <div id="view-calendar" class="view-section">
                 <div class="top-bar">
@@ -465,6 +494,7 @@
     <script src="js/dashboard.js"></script>
     <script src="js/calendar.js"></script>
     <script src="js/notifications.js"></script>
+    <script src="js/chat.js"></script>
     <script src="js/audit.js"></script>
     <script src="js/main.js"></script>
 </body>

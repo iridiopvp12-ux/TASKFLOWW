@@ -64,6 +64,7 @@ function switchView(v) {
 
     if (v === 'dash') renderDashboard();
     if (v === 'board') renderBoard(); // Force update
+    if (v === 'chat') initChat(); // Init Chat
     if (v === 'calendar' && typeof renderCalendar === 'function') renderCalendar();
 
     // 🛡️ NOVO: Hook para inicializar a Auditoria
@@ -174,6 +175,9 @@ function connectWebSocket() {
                 showToast("🔔 Nova Notificação!", "success");
                 loadNotifications();
             }
+        } else if (event.data.startsWith("chat:")) {
+            const payload = JSON.parse(event.data.substring(5));
+            handleChatNotification(payload);
         }
     };
 
