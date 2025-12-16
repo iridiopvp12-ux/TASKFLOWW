@@ -16,9 +16,9 @@ def get_comps():
          if c['templates'] is None:
              c['templates'] = []
          # Se for string (JSON), converte para lista
-         elif isinstance(c['templates'], str): 
+         elif isinstance(c['templates'], str):
              c['templates'] = json.loads(c['templates'])
-             
+
     conn.close()
     return res
 
