@@ -99,11 +99,19 @@ function renderMessages() {
             }
         }
 
+        // Trash icon for deletion (if me)
+        const deleteBtn = isMe || currentUser.role === 'admin'
+            ? `<span style="cursor:pointer; margin-left:8px; font-size:0.8rem; opacity:0.5;" title="Apagar" onclick="deleteChatMessage(${msg.id})">🗑️</span>`
+            : '';
+
         const html = `
             <div class="chat-msg ${isMe ? 'me' : ''}">
                 ${!isMe ? `<div class="mini-av" style="background:${msg.sender_color}; min-width:32px; height:32px;">${msg.sender_initials}</div>` : ''}
                 <div>
-                    <div class="chat-msg-meta">${isMe ? 'Você' : msg.sender_name} • ${time}</div>
+                    <div class="chat-msg-meta">
+                        ${isMe ? 'Você' : msg.sender_name} • ${time}
+                        ${deleteBtn}
+                    </div>
                     <div class="chat-msg-bubble">
                         ${msg.content ? `<div>${msg.content}</div>` : ''}
                         ${attachmentHtml}
@@ -115,6 +123,12 @@ function renderMessages() {
     });
 
     container.scrollTop = container.scrollHeight;
+}
+
+async function deleteChatMessage(id) {
+    if(confirm("Apagar mensagem?")) {
+        await fetchAPI(`/chat/message/${id}`, 'DELETE');
+    }
 }
 
 async function sendChatMessage() {
@@ -170,26 +184,30 @@ async function uploadChatFile() {
 }
 
 // Handle WS Event
-function handleChatNotification(data) {
-    // data is { id, sender_id, type, target_id, content... }
-    // Check if message belongs to active view
-    let shouldRender = false;
+function handleChatNotification(payload) {
+    if (payload.action === 'create') {
+        const data = payload.data;
+        // Check if message belongs to active view
+        let shouldRender = false;
 
-    if (activeChat.type === 'global' && data.type === 'global') {
-        shouldRender = true;
-    } else if (activeChat.type === 'dm') {
-        // If I am sender OR I am receiver and sender is active target
-        if (data.sender_id === currentUser.id && data.target_id === activeChat.targetId) shouldRender = true;
-        if (data.sender_id === activeChat.targetId && data.target_id === currentUser.id) shouldRender = true;
-    }
-
-    if (shouldRender) {
-        chatMessages.push(data);
-        renderMessages();
-    } else {
-        // Notification for DM if not active?
-        if (data.type === 'dm' && data.target_id === currentUser.id) {
-            showToast(`Nova mensagem de ${data.sender_name}`, "success");
+        if (activeChat.type === 'global' && data.type === 'global') {
+            shouldRender = true;
+        } else if (activeChat.type === 'dm') {
+            if (data.sender_id === currentUser.id && data.target_id === activeChat.targetId) shouldRender = true;
+            if (data.sender_id === activeChat.targetId && data.target_id === currentUser.id) shouldRender = true;
         }
+
+        if (shouldRender) {
+            chatMessages.push(data);
+            renderMessages();
+        } else {
+            if (data.type === 'dm' && data.target_id === currentUser.id) {
+                showToast(`Nova mensagem de ${data.sender_name}`, "success");
+            }
+        }
+    } else if (payload.action === 'delete') {
+        const id = payload.id;
+        chatMessages = chatMessages.filter(m => m.id !== id);
+        renderMessages();
     }
 }

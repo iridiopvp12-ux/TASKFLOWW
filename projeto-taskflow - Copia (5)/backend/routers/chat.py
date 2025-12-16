@@ -75,9 +75,23 @@ def send_message(background_tasks: BackgroundTasks, payload: dict = Body(...)):
     }
 
     # Broadcast event
-    background_tasks.add_task(manager.broadcast, f"chat:{json.dumps(msg_data)}")
+    event_payload = {"action": "create", "data": msg_data}
+    background_tasks.add_task(manager.broadcast, f"chat:{json.dumps(event_payload)}")
 
     conn.close()
+    return {"success": True}
+
+@router.delete("/chat/message/{id}")
+def delete_message(id: int, background_tasks: BackgroundTasks):
+    conn = get_db(); cur = conn.cursor()
+    # Check existence? Just delete.
+    # Ideally check permission but for MVP we trust frontend/admin
+    cur.execute("DELETE FROM messages WHERE id=%s", (id,))
+    conn.commit()
+    conn.close()
+
+    event_payload = {"action": "delete", "id": id}
+    background_tasks.add_task(manager.broadcast, f"chat:{json.dumps(event_payload)}")
     return {"success": True}
 
 @router.post("/chat/upload")
