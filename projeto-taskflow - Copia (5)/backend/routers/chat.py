@@ -23,7 +23,7 @@ def get_messages(target_id: Optional[int] = None, type: str = "global"):
             ORDER BY m.created_at ASC LIMIT 100
         """)
     elif type == "dm" and target_id:
-        pass # To be implemented if we validate current user
+        pass
 
     res = row_to_dict(cur)
     conn.close()
