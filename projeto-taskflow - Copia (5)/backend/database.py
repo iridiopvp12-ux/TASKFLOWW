@@ -51,6 +51,7 @@ def init_db():
             cur.execute("DROP TABLE IF EXISTS tasks CASCADE")
             cur.execute("DROP TABLE IF EXISTS standard_tasks CASCADE")
             cur.execute("DROP TABLE IF EXISTS notifications CASCADE")
+            cur.execute("DROP TABLE IF EXISTS messages CASCADE")
             conn.commit()
             print(">>> Tabelas antigas removidas com sucesso.")
 
@@ -101,6 +102,17 @@ def init_db():
             is_read BOOLEAN DEFAULT FALSE,
             created_at TEXT,
             task_id INTEGER
+        )""")
+
+        # --- NOVA TABELA PARA CHAT (MESSAGES) ---
+        cur.execute("""CREATE TABLE IF NOT EXISTS messages (
+            id SERIAL PRIMARY KEY,
+            sender_id INTEGER,
+            target_id INTEGER,
+            type TEXT,
+            content TEXT,
+            attachment TEXT,
+            created_at TEXT
         )""")
 
         conn.commit()

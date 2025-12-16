@@ -13,6 +13,7 @@ import backend.routers.users as users
 import backend.routers.companies as companies
 import backend.routers.tasks as tasks
 import backend.routers.notifications as notifications
+import backend.routers.chat as chat
 
 app = FastAPI()
 
@@ -36,6 +37,7 @@ app.include_router(users.router)
 app.include_router(companies.router)
 app.include_router(tasks.router)
 app.include_router(notifications.router)
+app.include_router(chat.router)
 
 # 3.1 Rota WebSocket (Realtime)
 @app.websocket("/ws")
@@ -53,8 +55,10 @@ async def websocket_endpoint(websocket: WebSocket):
 
 # 4. Configuração do Frontend (PRECISA SER ANTES DO IF MAIN)
 # Serve os arquivos CSS e JS
+os.makedirs("frontend/uploads", exist_ok=True) # Garante que a pasta existe para uploads
 app.mount("/css", StaticFiles(directory="frontend/css"), name="css")
 app.mount("/js", StaticFiles(directory="frontend/js"), name="js")
+app.mount("/uploads", StaticFiles(directory="frontend/uploads"), name="uploads")
 
 # Serve o HTML principal na raiz
 @app.get("/")
