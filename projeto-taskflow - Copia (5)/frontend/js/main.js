@@ -75,63 +75,13 @@ function switchView(v) {
 
 // --- AUTOMAÇÕES ---
 async function verificarTarefasAutomaticas() {
-    if (!TASKS || TASKS.length === 0) return;
-    const hoje = new Date();
-    const diaMesHoje = hoje.getDate();
-    const diaSemanaHoje = hoje.getDay();
-    const dataHojeFormatada = hoje.toISOString().split('T')[0];
-    const mesAtualFormatado = dataHojeFormatada.substring(0, 7);
-
-    let mudouAlgo = false;
-
-    const tarefasRecorrentes = TASKS.filter(t => t.recurrence && t.recurrence !== 'none');
-
-    for (const tOriginal of tarefasRecorrentes) {
-        let deveCriar = false;
-        let jaExisteNoPeriodo = false;
-
-        if (tOriginal.recurrence === 'daily') {
-            if (dataHojeFormatada > tOriginal.dueDate) deveCriar = true;
-            jaExisteNoPeriodo = TASKS.some(t => t.desc === tOriginal.desc && t.dueDate === dataHojeFormatada);
-        }
-        else if (tOriginal.recurrence === 'weekly') {
-            if (diaSemanaHoje === tOriginal.recurrenceDay) deveCriar = true;
-            jaExisteNoPeriodo = TASKS.some(t => t.desc === tOriginal.desc && t.dueDate === dataHojeFormatada);
-        }
-        else if (tOriginal.recurrence === 'monthly') {
-            if (diaMesHoje >= tOriginal.recurrenceDay) {
-                deveCriar = true;
-            }
-            jaExisteNoPeriodo = TASKS.some(t =>
-                t.desc === tOriginal.desc &&
-                t.dueDate.substring(0, 7) === mesAtualFormatado
-            );
-        }
-        else if (tOriginal.recurrence === 'fortnightly') {
-            const dataOrig = new Date(tOriginal.dueDate);
-            const diffTime = Math.abs(hoje - dataOrig);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            if (diffDays > 0 && diffDays % 15 === 0) deveCriar = true;
-            jaExisteNoPeriodo = TASKS.some(t => t.desc === tOriginal.desc && t.dueDate === dataHojeFormatada);
-        }
-
-        if (deveCriar && !jaExisteNoPeriodo) {
-            await fetchAPI('/tasks', 'POST', {
-                desc: tOriginal.desc,
-                dueDate: dataHojeFormatada,
-                assignedTo: tOriginal.assignedTo,
-                prio: tOriginal.prio,
-                companyId: tOriginal.companyId,
-                subtasks: tOriginal.subtasks.map(s => ({...s, done: false, done_by: null, done_at: null})), // Garante novos campos
-                status: "todo",
-                completedAt: null,
-                recurrence: 'none',
-                recurrenceDay: null
-            });
-            mudouAlgo = true;
-        }
+    // Agora a lógica roda no backend para evitar duplicidade (race conditions)
+    // Chamamos o endpoint que verifica e cria se necessário
+    const res = await fetchAPI('/tasks/process-recurrence', 'POST', {});
+    if (res && res.created > 0) {
+        showToast(`${res.created} tarefas recorrentes geradas!`, "success");
+        // loadAppData será chamado pelo WebSocket "update" que o backend envia
     }
-    if (mudouAlgo) { const t = await fetchAPI('/tasks'); if(t) { TASKS = t; renderAll(); showToast("Recorrências geradas!", "success"); } }
 }
 
 async function verificarLimpezaDiaria() {

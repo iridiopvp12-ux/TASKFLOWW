@@ -121,6 +121,84 @@ def create_task(t: TaskCreate, background_tasks: BackgroundTasks):
 
     return {"id": tid}
 
+@router.post("/tasks/process-recurrence")
+def process_recurrence(background_tasks: BackgroundTasks):
+    conn = get_db(); cur = conn.cursor()
+
+    cur.execute("SELECT * FROM tasks WHERE recurrence IN ('daily', 'weekly', 'monthly', 'fortnightly')")
+    masters = row_to_dict(cur)
+
+    created_count = 0
+    today = datetime.now().date()
+    today_str = today.isoformat()
+
+    for t in masters:
+        should_create = False
+        target_date = today_str
+
+        t_date_str = t['due_date'] # Postgres usually returns string for date/text columns
+        if not t_date_str: continue
+
+        # Parse date correctly (handle different formats if necessary, assuming YYYY-MM-DD)
+        try:
+            t_date = datetime.strptime(str(t_date_str), "%Y-%m-%d").date()
+        except ValueError:
+            continue
+
+        if t['recurrence'] == 'daily':
+            if t_date and today > t_date: should_create = True
+
+        elif t['recurrence'] == 'weekly':
+            rec_day = t['recurrence_day']
+            if rec_day is not None and today.weekday() == rec_day:
+                if t_date and today > t_date: should_create = True
+
+        elif t['recurrence'] == 'monthly':
+            rec_day = t['recurrence_day']
+            if rec_day is not None and today.day == rec_day:
+                if t_date and today > t_date: should_create = True
+
+        elif t['recurrence'] == 'fortnightly':
+            if t_date:
+                delta = (today - t_date).days
+                if delta > 0 and delta % 15 == 0: should_create = True
+
+        if should_create:
+            # Check DB existence (Idempotency)
+            # Use IS NOT DISTINCT FROM for nullable company_id
+            query = """
+                SELECT id FROM tasks
+                WHERE description = %s
+                AND due_date = %s
+                AND (company_id = %s OR (company_id IS NULL AND %s IS NULL))
+            """
+            cur.execute(query, (t['description'], target_date, t['company_id'], t['company_id']))
+
+            if not cur.fetchone():
+                # Create task
+                sub_json = json.dumps(t['subtasks']) if isinstance(t['subtasks'], list) else t['subtasks']
+                if not sub_json: sub_json = '[]'
+
+                subs = json.loads(sub_json)
+                for s in subs:
+                    s['done'] = False
+                    s['done_by'] = None
+                    s['done_at'] = None
+                sub_json_new = json.dumps(subs)
+
+                cur.execute(
+                    "INSERT INTO tasks (description, status, assigned_to, priority, due_date, completed_at, company_id, subtasks, recurrence, recurrence_day) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (t['description'], 'todo', t['assigned_to'], t['priority'], target_date, None, t['company_id'], sub_json_new, 'none', None)
+                )
+                created_count += 1
+
+    conn.commit(); conn.close()
+
+    if created_count > 0:
+        background_tasks.add_task(manager.broadcast, "update")
+
+    return {"processed": len(masters), "created": created_count}
+
 @router.put("/tasks/{id}")
 def update_task(id: int, background_tasks: BackgroundTasks, t: dict = Body(...)):
     conn = get_db(); cur = conn.cursor()
