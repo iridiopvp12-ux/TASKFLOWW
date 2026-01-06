@@ -11,7 +11,7 @@ function initializeCalendar() {
         headerToolbar: {
             left: 'prev,next today',
             center: 'title',
-            right: 'dayGridMonth,timeGridWeek,listWeek'
+            right: '' // Removido 'dayGridMonth,timeGridWeek,listWeek' conforme solicitado
         },
         buttonText: {
             today: 'Hoje',
