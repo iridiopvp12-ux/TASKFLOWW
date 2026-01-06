@@ -87,13 +87,13 @@
                     </div>
                     <!-- Chat Main -->
                     <div style="flex: 1; display: flex; flex-direction: column; background: var(--bg-body);">
-                        <div class="top-bar" style="padding: 15px 25px;">
+                        <div class="top-bar" style="padding: 20px 30px;">
                             <div class="page-title"><h2 id="chat-header-title">Global</h2><p id="chat-header-desc">Todos os membros</p></div>
                         </div>
-                        <div id="chat-messages" style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px;">
+                        <div id="chat-messages" style="flex: 1; padding: 30px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px;">
                             <!-- Messages -->
                         </div>
-                        <div style="padding: 20px; background: var(--bg-sidebar); border-top: 1px solid var(--border); display: flex; gap: 10px; align-items: center;">
+                        <div style="padding: 20px 30px; background: var(--bg-sidebar); border-top: 1px solid var(--border); display: flex; gap: 15px; align-items: center;">
                             <label for="chat-file-upload" style="cursor: pointer; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; margin: 0;">📎</label>
                             <input type="file" id="chat-file-upload" style="display: none;" onchange="uploadChatFile()">
                             <input type="text" id="chat-input" class="form-input" style="flex: 1;" placeholder="Digite sua mensagem..." onkeyup="if(event.key==='Enter') sendChatMessage()">
