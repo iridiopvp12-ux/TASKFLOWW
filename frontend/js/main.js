@@ -48,7 +48,14 @@ function renderAll() {
     renderBoard();
     renderDashboard();
     renderCompanies();
+
+    // Configurações: Atualiza visibilidade dos painéis de admin
+    const adminPanel = document.getElementById('settings-admin-panel');
+    if (adminPanel) {
+        adminPanel.style.display = (currentUser.role === 'admin') ? 'block' : 'none';
+    }
     renderSettings();
+
     updateSelects();
     // Renderiza o calendário se estiver visível, ou só deixa pronto
     if (typeof renderCalendar === 'function') {
