@@ -1,9 +1,23 @@
+console.log(">>> FRONTEND MAIN v2.1 LOADED <<<");
+
 // --- LOAD DATA & RENDER ---
 async function loadInitialData() {
     document.getElementById('loading-txt').style.display = 'block';
     const users = await fetchAPI('/users');
     if (users) { USERS = users; renderLoginList(); }
     document.getElementById('loading-txt').style.display = 'none';
+
+    // Login Persistente
+    const savedId = localStorage.getItem('taskflow_user_id');
+    if (savedId) {
+        // Tenta logar automaticamente
+        if (users && users.find(u => u.id == savedId)) {
+            initLogin(parseInt(savedId)); // Prepara
+            // Simula clique ou login direto se tivéssemos token. Como é senha, só preenche.
+            // Para "Lembrar de mim" real, precisaríamos de token.
+            // Vamos apenas facilitar: se recarregar, volta pra tela de senha do usuário
+        }
+    }
 }
 
 async function loadAppData() {
@@ -16,8 +30,8 @@ async function loadAppData() {
     renderAll();
     updateSelects();
 
-    verificarTarefasAutomaticas();
-    verificarLimpezaDiaria();
+    // verificarTarefasAutomaticas(); // REMOVIDO DAQUI para evitar loop de updates/toasts
+    // verificarLimpezaDiaria(); // REMOVIDO DAQUI
 
     // 🛡️ NOVO: Condicional para Módulo de Auditoria (Apenas Admin)
     const navAudit = document.getElementById('nav-audit');
@@ -96,6 +110,13 @@ async function verificarLimpezaDiaria() {
     if (mudouAlgo) { const t = await fetchAPI('/tasks'); if(t) { TASKS = t; renderAll(); showToast("Quadro limpo (Dia novo)!", "success"); } }
 }
 
+// Executa automações apenas uma vez ao iniciar (se logado) ou via setInterval longo
+setInterval(() => {
+    if (currentUser) {
+        verificarTarefasAutomaticas();
+        verificarLimpezaDiaria();
+    }
+}, 60 * 60 * 1000); // 1 hora
 
 
 loadInitialData();

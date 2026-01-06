@@ -6,6 +6,8 @@ from ..schemas import TaskCreate, StandardTaskCreate
 from ..realtime import manager
 from datetime import datetime
 
+print(">>> LOADING TASKS ROUTER v2.1 (FIXED) <<<")
+
 router = APIRouter()
 
 @router.get("/tasks")
@@ -136,10 +138,9 @@ def process_recurrence(background_tasks: BackgroundTasks):
         should_create = False
         target_date = today_str
 
-        t_date_str = t['due_date'] # Postgres usually returns string for date/text columns
+        t_date_str = t['due_date']
         if not t_date_str: continue
 
-        # Parse date correctly (handle different formats if necessary, assuming YYYY-MM-DD)
         try:
             t_date = datetime.strptime(str(t_date_str), "%Y-%m-%d").date()
         except ValueError:
@@ -164,15 +165,17 @@ def process_recurrence(background_tasks: BackgroundTasks):
                 if delta > 0 and delta % 15 == 0: should_create = True
 
         if should_create:
-            # Check DB existence (Idempotency)
-            # Use IS NOT DISTINCT FROM for nullable company_id
-            query = """
-                SELECT id FROM tasks
-                WHERE description = %s
-                AND due_date = %s
-                AND (company_id = %s OR (company_id IS NULL AND %s IS NULL))
-            """
-            cur.execute(query, (t['description'], target_date, t['company_id'], t['company_id']))
+            # CORREÇÃO CRÍTICA 2: Evitar parâmetro ambíguo no SQL para NULL
+            # Construir query condicional
+            comp_val = t['company_id']
+            if comp_val is None:
+                query = "SELECT id FROM tasks WHERE description = %s AND due_date = %s AND company_id IS NULL"
+                params = (t['description'], target_date)
+            else:
+                query = "SELECT id FROM tasks WHERE description = %s AND due_date = %s AND company_id = %s"
+                params = (t['description'], target_date, comp_val)
+
+            cur.execute(query, params)
 
             if not cur.fetchone():
                 # Create task

@@ -30,6 +30,12 @@ async function performLogin() {
     const res = await fetchAPI('/login', 'POST', { id: pendingLoginUserId, password: pwd });
     if (res && res.success) {
         currentUser = res.user;
+<<<<<<< HEAD:frontend/js/auth.js
+=======
+        // Salva ID no localStorage
+        localStorage.setItem('taskflow_user_id', currentUser.id);
+
+>>>>>>> e4048f57bd2113293ad98d31d919043a996cbc81:projeto-taskflow - Copia (5)/frontend/js/auth.js
         closeModal('modal-login-pass');
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('app-container').classList.add('active');
@@ -43,13 +49,23 @@ async function performLogin() {
                 const el = document.getElementById(id); if(el) el.style.display = 'none';
             });
         }
+<<<<<<< HEAD:frontend/js/auth.js
         await loadAppData(); 
+=======
+        await loadAppData();
+
+        // Executa automações APENAS no login (uma vez)
+        verificarTarefasAutomaticas();
+        verificarLimpezaDiaria();
+
+>>>>>>> e4048f57bd2113293ad98d31d919043a996cbc81:projeto-taskflow - Copia (5)/frontend/js/auth.js
         showToast(`Bem-vindo, ${currentUser.name}!`, 'success');
     } else {
         showToast("Senha incorreta", "error");
     }
 }
 
+<<<<<<< HEAD:frontend/js/auth.js
 function logout() { location.reload(); }
 
 
@@ -91,4 +107,50 @@ async function deleteUser(id) {
         await fetchAPI(`/users/${id}`, 'DELETE'); 
         await loadAppData(); 
     } 
+=======
+function logout() {
+    localStorage.removeItem('taskflow_user_id');
+    location.reload();
+}
+
+
+// --- GESTÃO DE USUÁRIOS ---
+function renderSettings() {
+    const list = document.getElementById('user-list-settings');
+    list.innerHTML = '';
+    USERS.forEach(u => {
+        list.insertAdjacentHTML('beforeend', `<div class="data-item"><div class="data-info"><h4 style="color:${u.color}">${u.name}</h4><p>${u.roleDesc} (${u.role === 'admin' ? 'Admin' : 'Equipe'})</p></div><button class="btn-danger-outline" onclick="deleteUser(${u.id})">Remover</button></div>`);
+    });
+}
+
+async function saveUser() {
+    const name = document.getElementById('user-name').value;
+    const pass = document.getElementById('user-pass-new').value;
+    if(!name || !pass) return showToast("Falta nome ou senha", "error");
+
+    const colors = ['#f472b6', '#22d3ee', '#a78bfa', '#34d399', '#fbbf24'];
+
+    const newUser = {
+        name,
+        role: document.getElementById('user-perm').value,
+        roleDesc: document.getElementById('user-role-desc').value,
+        initials: document.getElementById('user-initials').value.toUpperCase(),
+        color: colors[Math.floor(Math.random()*colors.length)],
+        password: pass
+    };
+
+    const res = await fetchAPI('/users', 'POST', newUser);
+    if(res) {
+        await loadAppData();
+        closeModal('modal-user');
+        showToast("Usuário criado!", "success");
+    }
+}
+
+async function deleteUser(id) {
+    if(confirm("Remover usuário?")) {
+        await fetchAPI(`/users/${id}`, 'DELETE');
+        await loadAppData();
+    }
+>>>>>>> e4048f57bd2113293ad98d31d919043a996cbc81:projeto-taskflow - Copia (5)/frontend/js/auth.js
 }
