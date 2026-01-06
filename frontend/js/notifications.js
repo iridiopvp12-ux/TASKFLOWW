@@ -1,6 +1,58 @@
 // Arquivo: frontend/js/notifications.js
 
 let NOTIFICATIONS = [];
+let PREFS = { desktop: false, sound: false };
+
+function loadNotificationPrefs() {
+    const s = localStorage.getItem('tf_notif_prefs');
+    if (s) {
+        PREFS = JSON.parse(s);
+    }
+    // Update UI if we are on settings page
+    const chkDesktop = document.getElementById('cfg-desktop-notif');
+    const chkSound = document.getElementById('cfg-sound-notif');
+    if (chkDesktop && chkSound) {
+        chkDesktop.checked = PREFS.desktop;
+        chkSound.checked = PREFS.sound;
+    }
+}
+
+function saveNotificationPrefs() {
+    const chkDesktop = document.getElementById('cfg-desktop-notif');
+    const chkSound = document.getElementById('cfg-sound-notif');
+    if (!chkDesktop || !chkSound) return;
+
+    PREFS.desktop = chkDesktop.checked;
+    PREFS.sound = chkSound.checked;
+    localStorage.setItem('tf_notif_prefs', JSON.stringify(PREFS));
+
+    if (PREFS.desktop) {
+        Notification.requestPermission();
+    }
+}
+
+function playNotificationSound() {
+    if (!PREFS.sound) return;
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 500;
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.2);
+    } catch(e) { console.error("Audio error", e); }
+}
+
+function triggerDesktopNotification(title, body) {
+    if (!PREFS.desktop) return;
+    if (Notification.permission === 'granted') {
+        new Notification(title, { body: body });
+    }
+}
 
 async function loadNotifications() {
     if (!currentUser) return;

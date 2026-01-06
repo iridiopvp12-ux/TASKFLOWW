@@ -11,13 +11,11 @@ function initializeCalendar() {
         headerToolbar: {
             left: 'prev,next today',
             center: 'title',
-            right: '' // Removido 'dayGridMonth,timeGridWeek,listWeek' conforme solicitado
+            right: ''
         },
         buttonText: {
             today: 'Hoje',
-            month: 'Mês',
-            week: 'Semana',
-            list: 'Lista'
+            month: 'Mês'
         },
         height: '100%',
         events: getCalendarEvents(),
