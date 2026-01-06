@@ -6,6 +6,8 @@ from ..schemas import TaskCreate, StandardTaskCreate
 from ..realtime import manager
 from datetime import datetime
 
+print(">>> LOADING TASKS ROUTER v2.1 (FIXED) <<<")
+
 router = APIRouter()
 
 @router.get("/tasks")

@@ -1,3 +1,5 @@
+console.log(">>> FRONTEND MAIN v2.1 LOADED <<<");
+
 // --- LOAD DATA & RENDER ---
 async function loadInitialData() {
     document.getElementById('loading-txt').style.display = 'block';
