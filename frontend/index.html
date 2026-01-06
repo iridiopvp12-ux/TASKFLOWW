@@ -96,6 +96,7 @@
                         <div style="padding: 20px 30px; background: var(--bg-sidebar); border-top: 1px solid var(--border); display: flex; gap: 15px; align-items: center;">
                             <label for="chat-file-upload" style="cursor: pointer; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; margin: 0;">📎</label>
                             <input type="file" id="chat-file-upload" style="display: none;" onchange="uploadChatFile()">
+                            <button id="btn-mic" onclick="toggleRecording()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 5px;">🎤</button>
                             <input type="text" id="chat-input" class="form-input" style="flex: 1;" placeholder="Digite sua mensagem..." onkeyup="if(event.key==='Enter') sendChatMessage()">
                             <button class="btn-primary" onclick="sendChatMessage()">Enviar</button>
                         </div>
@@ -262,6 +263,22 @@
                     <div class="page-title"><h2>Configurações</h2><p>Gestão de Equipe.</p></div>
                 </div>
                 <div class="settings-container">
+                    <div class="section-header">
+                        <span class="section-title">🔔 Preferências de Notificação</span>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+                         <div style="display:flex; flex-direction:column; gap:15px;">
+                            <label class="switch-container" style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                                <input type="checkbox" id="cfg-desktop-notif" onchange="saveNotificationPrefs()">
+                                <span style="color:white;">Habilitar Notificações de Desktop</span>
+                            </label>
+                            <label class="switch-container" style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                                <input type="checkbox" id="cfg-sound-notif" onchange="saveNotificationPrefs()">
+                                <span style="color:white;">Habilitar Sons</span>
+                            </label>
+                         </div>
+                    </div>
+
                     <div class="section-header">
                         <span class="section-title">👥 Gestão de Equipe</span>
                         <button class="btn-primary" onclick="openUserModal()">+ Novo Usuário</button>

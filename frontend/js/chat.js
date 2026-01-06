@@ -94,6 +94,8 @@ function renderMessages() {
         if (msg.attachment) {
             if (msg.attachment.match(/\.(jpeg|jpg|gif|png)$/i)) {
                 attachmentHtml = `<img src="${msg.attachment}" class="chat-img-preview" onclick="window.open('${msg.attachment}')">`;
+            } else if (msg.attachment.match(/\.(mp3|wav|ogg|webm)$/i)) {
+                attachmentHtml = `<div style="margin-top:5px;"><audio controls src="${msg.attachment}"></audio></div>`;
             } else {
                 attachmentHtml = `<div style="margin-top:5px;"><a href="${msg.attachment}" target="_blank" style="color:white; text-decoration:underline;">📄 Abrir Arquivo</a></div>`;
             }
@@ -159,6 +161,10 @@ async function uploadChatFile() {
     const file = fileInput.files[0];
     if (!file) return;
 
+    await performFileUpload(file);
+}
+
+async function performFileUpload(file) {
     const formData = new FormData();
     formData.append('file', file);
 
@@ -167,7 +173,7 @@ async function uploadChatFile() {
     try {
         const res = await fetch(`${API_URL}/chat/upload`, {
             method: 'POST',
-            body: formData // No Content-Type header, browser sets it with boundary
+            body: formData
         });
         const data = await res.json();
 
@@ -180,6 +186,52 @@ async function uploadChatFile() {
     } catch (e) {
         console.error(e);
         showToast("Erro no upload", "error");
+    }
+}
+
+// Audio Recording
+let mediaRecorder = null;
+let audioChunks = [];
+
+async function toggleRecording() {
+    const btn = document.getElementById('btn-mic');
+
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        // Stop
+        mediaRecorder.stop();
+        btn.innerHTML = '🎤';
+        btn.classList.remove('recording');
+        btn.style.color = '';
+    } else {
+        // Start
+        if (!navigator.mediaDevices) {
+            alert("Microfone não suportado ou sem permissão.");
+            return;
+        }
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                // Convert blob to file
+                const file = new File([audioBlob], "audio_message.webm", { type: 'audio/webm' });
+                await performFileUpload(file);
+            };
+
+            mediaRecorder.start();
+            btn.innerHTML = '⏹️';
+            btn.classList.add('recording');
+            btn.style.color = 'red';
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao acessar microfone.");
+        }
     }
 }
 
@@ -200,9 +252,14 @@ function handleChatNotification(payload) {
         if (shouldRender) {
             chatMessages.push(data);
             renderMessages();
+            if (data.sender_id !== currentUser.id) {
+                if (window.playNotificationSound) playNotificationSound();
+            }
         } else {
             if (data.type === 'dm' && data.target_id === currentUser.id) {
                 showToast(`Nova mensagem de ${data.sender_name}`, "success");
+                if (window.playNotificationSound) playNotificationSound();
+                if (window.triggerDesktopNotification) triggerDesktopNotification(`Mensagem de ${data.sender_name}`, data.content || "Enviou um anexo");
             }
         }
     } else if (payload.action === 'delete') {

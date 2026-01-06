@@ -98,7 +98,7 @@ def delete_message(id: int, background_tasks: BackgroundTasks):
 def upload_file(file: UploadFile = File(...)):
     try:
         # 1. Validação de Segurança (Extensões Permitidas)
-        ALLOWED_EXTS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'txt', 'docx', 'zip'}
+        ALLOWED_EXTS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'txt', 'docx', 'zip', 'mp3', 'wav', 'ogg', 'webm'}
         ext = file.filename.split('.')[-1].lower()
         if ext not in ALLOWED_EXTS:
             return {"error": "Tipo de arquivo não permitido"}

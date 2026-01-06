@@ -2,6 +2,9 @@ console.log(">>> FRONTEND MAIN v2.1 LOADED <<<");
 
 // --- LOAD DATA & RENDER ---
 async function loadInitialData() {
+    // Load local prefs
+    if (window.loadNotificationPrefs) loadNotificationPrefs();
+
     document.getElementById('loading-txt').style.display = 'block';
     const users = await fetchAPI('/users');
     if (users) { USERS = users; renderLoginList(); }
@@ -81,6 +84,10 @@ function switchView(v) {
     if (v === 'chat') initChat(); // Init Chat
     if (v === 'calendar' && typeof renderCalendar === 'function') renderCalendar();
 
+    if (v === 'settings') {
+        if (window.loadNotificationPrefs) loadNotificationPrefs();
+    }
+
     // 🛡️ NOVO: Hook para inicializar a Auditoria
     if (v === 'audit' && currentUser.role === 'admin') {
         initializeAuditModule();
@@ -145,6 +152,9 @@ function connectWebSocket() {
             if (currentUser && currentUser.id === targetId) {
                 showToast("🔔 Nova Notificação!", "success");
                 loadNotifications();
+                // Play sound or desktop notif
+                if (window.playNotificationSound) playNotificationSound();
+                if (window.triggerDesktopNotification) triggerDesktopNotification("Nova Notificação", "Você tem um novo alerta no TaskFlow");
             }
         } else if (event.data.startsWith("chat:")) {
             const payload = JSON.parse(event.data.substring(5));
