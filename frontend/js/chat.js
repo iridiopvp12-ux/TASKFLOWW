@@ -44,7 +44,8 @@ function initChat() {
         sidebar: {
             background: '#1e293b',
             borderRight: '1px solid #475569',
-            colorSearch: '#fff'
+            colorSearch: '#fff',
+            colorPreview: '#94a3b8'
         },
         message: {
             background: '#334155', // --bg-card (others)
@@ -76,6 +77,7 @@ function initChat() {
     chatComponent.addEventListener('edit-message', handleEditMessage);
     chatComponent.addEventListener('delete-message', handleDeleteMessage);
     chatComponent.addEventListener('send-message-reaction', handleReaction);
+    chatComponent.addEventListener('add-room', handleAddRoom);
 
     // Carregar lista de salas (Usuários)
     loadRooms();
@@ -103,7 +105,7 @@ async function handleFetchMessages(event) {
         chatComponent.messages = JSON.stringify(msgs);
     }
     // Sempre marcar como loaded para matar o spinner
-    chatComponent.messagesLoaded = true;
+    setTimeout(() => { chatComponent.messagesLoaded = true; }, 10);
 }
 
 async function handleSendMessage(event) {
@@ -198,6 +200,33 @@ async function handleReaction(event) {
         remove: remove,
         userId: currentUser.id
     });
+}
+
+async function handleAddRoom(event) {
+    // detail[0] = { roomId, roomName, users: [id, id], ... }
+    // mas o evento add-room do componente geralmente abre um modal interno ou esperamos que a gente abra?
+    // O componente vue-advanced-chat emite 'add-room' quando clica no botão '+'.
+    // Precisamos abrir nosso modal ou usar prompt simples.
+    // O componente não tem modal de seleção de usuarios embutido para criar sala, nós que temos que implementar a UI de seleção.
+    // Vamos fazer um prompt simples por enquanto ou usar o modal de usuario existente adaptado?
+    // Prompt simples de nome + seleção automatica (todos?) não faz sentido.
+    // Vamos assumir que o usuário quer criar grupo.
+
+    const roomName = prompt("Nome do Grupo:");
+    if (!roomName) return;
+
+    // Simplificação: Criar grupo vazio e depois adicionar (ou selecionar usuarios agora).
+    // Como não temos UI de multiselect pronta no prompt, vamos pegar todos os users exceto eu para teste, ou melhor:
+    // Mostrar prompt de IDs? Não.
+    // Vamos criar o grupo só com o criador por enquanto, e a interface permite adicionar depois?
+    // O componente não tem menu "add member" nativo fácil de hookar sem UI custom.
+    // Vamos criar um grupo com TODOS os usuários para facilitar o teste do cliente, ou listar IDs.
+
+    // Melhor: Criar grupo vazio.
+    const res = await fetchAPI('/chat/room', 'POST', { roomName: roomName, users: [currentUser.id] });
+    if(res) {
+        loadRooms(); // Refresh list
+    }
 }
 
 // --- INTEGRAÇÃO WEBSOCKET ---

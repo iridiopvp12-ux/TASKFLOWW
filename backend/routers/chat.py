@@ -17,47 +17,44 @@ router = APIRouter()
 @router.get("/chat/rooms")
 def get_rooms(current_user_id: int):
     """
-    Retorna a lista de usuários como 'salas'.
+    Retorna lista de usuários (DMs) e Grupos.
     """
     conn = get_db()
     try:
         cur = conn.cursor()
-        # Buscar todos os usuários exceto o atual
+        rooms = []
+
+        # 1. USERS (DMs)
         cur.execute("""
             SELECT id, name, initials, color, role
             FROM users u
             WHERE id != %s
             ORDER BY name ASC
         """, (current_user_id,))
-
         users = row_to_dict(cur)
-        rooms = []
 
         for u in users:
-            # Construir roomId baseado no par de IDs (min_max)
-            # Para DMs no vue-advanced-chat, cada usuário é uma sala.
-            # No entanto, para persistência de mensagens, usamos o par.
-            # Aqui, retornamos o usuário como uma 'room' para a UI listar.
+            # Busca última mensagem DM (target_id=id OR sender_id=id AND type='dm')
+            # Precisamos filtrar pelo current_user também
 
-            # Precisamos buscar a última mensagem entre current e u['id']
-            min_id = min(current_user_id, u['id'])
-            max_id = max(current_user_id, u['id'])
+            # Correção lógica: DM é sempre par (eu, ele)
+            # sender=eu, target=ele OU sender=ele, target=eu
 
-            # Query otimizada para last message (pode ser pesada se muitos msgs, ideal index)
+            target_id = u['id']
+
             cur.execute("""
                 SELECT content, created_at, sender_id, seen, files
                 FROM messages
-                WHERE (sender_id=%s AND target_id=%s) OR (sender_id=%s AND target_id=%s)
+                WHERE (sender_id=%s AND target_id=%s AND type='dm')
+                   OR (sender_id=%s AND target_id=%s AND type='dm')
                 ORDER BY id DESC LIMIT 1
-            """, (min_id, max_id, max_id, min_id))
-            last_msg = cur.fetchone() # Retorna tupla
+            """, (current_user_id, target_id, target_id, current_user_id))
+            last_msg = cur.fetchone()
 
             last_message_obj = None
             if last_msg:
-                # last_msg: (content, created_at, sender_id, seen, files)
                 is_me = (last_msg[2] == current_user_id)
                 files_data = last_msg[4] if last_msg[4] else []
-                # Se for string JSON (no sqlite/postgres drivers antigos pode vir como str)
                 if isinstance(files_data, str):
                     try: files_data = json.loads(files_data)
                     except: files_data = []
@@ -70,32 +67,98 @@ def get_rooms(current_user_id: int):
                     "content": content_preview,
                     "senderId": str(last_msg[2]),
                     "username": "Você" if is_me else u['name'],
-                    "timestamp": last_msg[1][11:16] if last_msg[1] else "", # HH:MM ISO format
+                    "timestamp": last_msg[1][11:16] if last_msg[1] else "",
                     "seen": last_msg[3],
                     "new": not last_msg[3] and not is_me
                 }
 
-            # Contar não lidas
             cur.execute("""
                 SELECT COUNT(*) FROM messages
-                WHERE target_id=%s AND sender_id=%s AND seen=FALSE
+                WHERE target_id=%s AND sender_id=%s AND seen=FALSE AND type='dm'
             """, (current_user_id, u['id']))
             unread_count = cur.fetchone()[0]
 
-            # Gerar avatar se não existir (usando ui-avatars.com)
+            # Avatar
             avatar_url = u.get('avatar')
             if not avatar_url:
                 color_clean = u['color'].replace('#', '') if u['color'] else '3b82f6'
                 avatar_url = f"https://ui-avatars.com/api/?name={u['name']}&background={color_clean}&color=fff"
 
             rooms.append({
-                "roomId": str(u['id']), # Na UI, o ID da sala é o ID do outro usuário para DMs
+                "roomId": str(u['id']),
                 "roomName": u['name'],
                 "avatar": avatar_url,
-                "users": [
-                    {"_id": str(u['id']), "username": u['name'], "avatar": avatar_url, "status": {"state": "offline"}} # Status real viria do realtime
-                ],
+                "users": [{"_id": str(u['id']), "username": u['name'], "avatar": avatar_url, "status": {"state": "offline"}}],
                 "unreadCount": unread_count,
+                "lastMessage": last_message_obj
+            })
+
+        # 2. GROUPS
+        cur.execute("""
+            SELECT r.id, r.name, r.avatar
+            FROM chat_rooms r
+            JOIN chat_room_members m ON r.id = m.room_id
+            WHERE m.user_id = %s
+        """, (current_user_id,))
+        groups = row_to_dict(cur)
+
+        for g in groups:
+            # Last msg for group (target_id=NULL, room_id=g['id'])
+            # No nosso schema novo, msg de grupo tem room_id preenchido.
+
+            cur.execute("""
+                SELECT m.content, m.created_at, m.sender_id, m.seen, m.files, u.name
+                FROM messages m
+                LEFT JOIN users u ON m.sender_id = u.id
+                WHERE m.room_id = %s
+                ORDER BY m.id DESC LIMIT 1
+            """, (g['id'],))
+            last_msg = cur.fetchone()
+
+            last_message_obj = None
+            if last_msg:
+                is_me = (last_msg[2] == current_user_id)
+                files_data = last_msg[4] if last_msg[4] else []
+                if isinstance(files_data, str):
+                    try: files_data = json.loads(files_data)
+                    except: files_data = []
+
+                content_preview = last_msg[0]
+                if not content_preview and files_data: content_preview = "📎 Anexo"
+
+                last_message_obj = {
+                    "content": content_preview,
+                    "senderId": str(last_msg[2]),
+                    "username": "Você" if is_me else (last_msg[5] or "User"),
+                    "timestamp": last_msg[1][11:16] if last_msg[1] else "",
+                    "seen": True, # Em grupo, lógica de seen é complexa, simplificamos
+                    "new": False
+                }
+
+            # Buscar membros
+            cur.execute("""
+                SELECT u.id, u.name, u.initials, u.color
+                FROM users u
+                JOIN chat_room_members m ON u.id = m.user_id
+                WHERE m.room_id = %s
+            """, (g['id'],))
+            members_rows = row_to_dict(cur)
+            members_objs = []
+            for m in members_rows:
+                avatar_url = f"https://ui-avatars.com/api/?name={m['name']}&background={m['color'].replace('#','')}&color=fff"
+                members_objs.append({
+                    "_id": str(m['id']),
+                    "username": m['name'],
+                    "avatar": avatar_url,
+                    "status": {"state": "offline"}
+                })
+
+            rooms.append({
+                "roomId": g['id'], # ID textual (uuid ou prefixo)
+                "roomName": g['name'],
+                "avatar": g['avatar'] or "https://ui-avatars.com/api/?name=G&background=random",
+                "users": members_objs,
+                "unreadCount": 0, # TODO: Implementar unread pra grupo
                 "lastMessage": last_message_obj
             })
 
@@ -103,38 +166,72 @@ def get_rooms(current_user_id: int):
     finally:
         conn.close()
 
-@router.get("/chat/messages")
-def get_messages(roomId: str, currentUserId: int):
-    """
-    Busca mensagens entre currentUserId e roomId (que é o targetUserId).
-    """
+@router.post("/chat/room")
+def create_room(payload: dict = Body(...)):
+    # payload: { roomName: str, users: [id, id...] }
     conn = get_db()
     try:
-        target_id = int(roomId)
+        cur = conn.cursor()
+        room_id = f"group_{uuid.uuid4().hex[:8]}"
+        name = payload.get('roomName', 'Novo Grupo')
+        users = payload.get('users', [])
+
+        # Add creator if not in list (assumindo que o front manda users selecionados + current)
+        # Vamos garantir no backend
+
+        cur.execute("INSERT INTO chat_rooms (id, name, created_at) VALUES (%s, %s, %s)",
+                    (room_id, name, datetime.now().isoformat()))
+
+        for uid in users:
+            try:
+                uid_int = int(uid)
+                cur.execute("INSERT INTO chat_room_members (room_id, user_id, joined_at) VALUES (%s, %s, %s)",
+                            (room_id, uid_int, datetime.now().isoformat()))
+            except: pass
+
+        conn.commit()
+
+        return {"roomId": room_id, "roomName": name, "users": users} # Front vai dar refresh ou add manual
+    finally:
+        conn.close()
+
+@router.get("/chat/messages")
+def get_messages(roomId: str, currentUserId: int):
+    conn = get_db()
+    try:
         cur = conn.cursor()
 
-        # Garante ordem correta para query
-        # min_id = min(currentUserId, target_id)
-        # max_id = max(currentUserId, target_id)
+        # Check if DM or Group
+        is_group = roomId.startswith('group_')
 
-        # Buscar mensagens
-        cur.execute("""
-            SELECT m.id, m.content, m.sender_id, m.created_at, m.seen, m.files, m.reactions, m.reply_to_id, m.edited, m.deleted
-            FROM messages m
-            WHERE (m.sender_id = %s AND m.target_id = %s)
-               OR (m.sender_id = %s AND m.target_id = %s)
-            ORDER BY m.created_at ASC
-        """, (currentUserId, target_id, target_id, currentUserId))
+        if is_group:
+            query = """
+                SELECT m.id, m.content, m.sender_id, m.created_at, m.seen, m.files, m.reactions, m.reply_to_id, m.edited, m.deleted, u.name as sender_name
+                FROM messages m
+                LEFT JOIN users u ON m.sender_id = u.id
+                WHERE m.room_id = %s
+                ORDER BY m.created_at ASC
+            """
+            params = (roomId,)
+        else:
+            # DM Logic
+            target_id = int(roomId)
+            query = """
+                SELECT m.id, m.content, m.sender_id, m.created_at, m.seen, m.files, m.reactions, m.reply_to_id, m.edited, m.deleted, 'User' as sender_name
+                FROM messages m
+                WHERE (m.sender_id = %s AND m.target_id = %s AND m.type = 'dm')
+                   OR (m.sender_id = %s AND m.target_id = %s AND m.type = 'dm')
+                ORDER BY m.created_at ASC
+            """
+            params = (currentUserId, target_id, target_id, currentUserId)
 
+        cur.execute(query, params)
         rows = row_to_dict(cur)
         formatted = []
 
-        # Para replies, precisamos montar um mapa rápido ou fazer query (mapa é melhor se paginado)
-        # Como estamos pegando tudo (sem paginação pesada ainda), ok.
         msg_map = {row['id']: row for row in rows}
 
         for r in rows:
-            # Parse JSON fields
             files = r['files']
             if isinstance(files, str):
                 try: files = json.loads(files)
@@ -145,7 +242,6 @@ def get_messages(roomId: str, currentUserId: int):
                 try: reactions = json.loads(reactions)
                 except: reactions = {}
 
-            # Reply object
             reply_obj = None
             if r['reply_to_id'] and r['reply_to_id'] in msg_map:
                 orig = msg_map[r['reply_to_id']]
@@ -153,11 +249,8 @@ def get_messages(roomId: str, currentUserId: int):
                     "_id": str(orig['id']),
                     "content": orig['content'],
                     "senderId": str(orig['sender_id'])
-                    # "files": ... se quiser preview
                 }
 
-            # Date formatting
-            # ISO: 2023-10-25T14:30:00
             date_str = r['created_at'].split('T')[0] if r['created_at'] else ""
             time_str = r['created_at'].split('T')[1][:5] if r['created_at'] and 'T' in r['created_at'] else ""
 
@@ -165,6 +258,7 @@ def get_messages(roomId: str, currentUserId: int):
                 "_id": str(r['id']),
                 "content": r['content'] if not r['deleted'] else "🚫 Mensagem apagada",
                 "senderId": str(r['sender_id']),
+                "username": r.get('sender_name', ''), # Importante pra grupo
                 "date": date_str,
                 "timestamp": time_str,
                 "seen": r['seen'],
@@ -177,8 +271,8 @@ def get_messages(roomId: str, currentUserId: int):
                 "disableReactions": r['deleted']
             })
 
-            # Marcar como vistas se eu sou o destinatário
-            if r['sender_id'] == target_id and not r['seen']:
+            # Se for DM e eu sou o alvo, marcar visto
+            if not is_group and r['sender_id'] == int(roomId) and not r['seen']:
                 cur.execute("UPDATE messages SET seen=TRUE WHERE id=%s", (r['id'],))
 
         conn.commit()
@@ -188,62 +282,99 @@ def get_messages(roomId: str, currentUserId: int):
 
 @router.post("/chat/message")
 def send_message_v2(background_tasks: BackgroundTasks, payload: dict = Body(...)):
-    # payload: { senderId, roomId, content, files, replyMessage, usersTag }
     conn = get_db()
     try:
         cur = conn.cursor()
         now = datetime.now().isoformat()
 
-        target_id = int(payload['roomId']) # RoomId é o ID do usuário destino
         sender_id = int(payload['senderId'])
-
+        raw_room_id = payload['roomId']
+        content = payload.get('content')
         files_json = json.dumps(payload.get('files', []))
 
         reply_id = None
         if payload.get('replyMessage'):
             reply_id = int(payload['replyMessage']['_id'])
 
-        cur.execute("""
-            INSERT INTO messages
-            (sender_id, target_id, type, content, files, created_at, reply_to_id, seen)
-            VALUES (%s, %s, 'dm', %s, %s, %s, %s, FALSE)
-            RETURNING id
-        """, (sender_id, target_id, payload.get('content'), files_json, now, reply_id))
+        is_group = str(raw_room_id).startswith('group_')
 
-        new_id = cur.fetchone()[0]
+        new_id = None
+
+        if is_group:
+            cur.execute("""
+                INSERT INTO messages
+                (sender_id, room_id, type, content, files, created_at, reply_to_id, seen)
+                VALUES (%s, %s, 'group', %s, %s, %s, %s, FALSE)
+                RETURNING id
+            """, (sender_id, raw_room_id, content, files_json, now, reply_id))
+            new_id = cur.fetchone()[0]
+
+            # Broadcast para membros do grupo
+            cur.execute("SELECT user_id FROM chat_room_members WHERE room_id=%s", (raw_room_id,))
+            members = cur.fetchall()
+
+            # Fetch sender name for notification
+            cur.execute("SELECT name FROM users WHERE id=%s", (sender_id,))
+            sname = cur.fetchone()[0]
+
+            msg_obj = {
+                "_id": str(new_id),
+                "content": content,
+                "senderId": str(sender_id),
+                "username": sname,
+                "date": now.split('T')[0],
+                "timestamp": now.split('T')[1][:5],
+                "seen": False,
+                "deleted": False,
+                "edited": False,
+                "files": payload.get('files', []),
+                "reactions": {},
+                "replyMessage": payload.get('replyMessage')
+            }
+
+            for m in members:
+                uid = m[0]
+                # Send to everyone (client filters if it's their own msg usually, but we can optimistically send)
+                event_target = {
+                    "action": "message",
+                    "data": msg_obj,
+                    "roomId": raw_room_id # Para o target, o roomId é o group_id
+                }
+                background_tasks.add_task(manager.send_personal_message, f"chat:{json.dumps(event_target)}", uid)
+
+        else:
+            # DM
+            target_id = int(raw_room_id)
+            cur.execute("""
+                INSERT INTO messages
+                (sender_id, target_id, type, content, files, created_at, reply_to_id, seen)
+                VALUES (%s, %s, 'dm', %s, %s, %s, %s, FALSE)
+                RETURNING id
+            """, (sender_id, target_id, content, files_json, now, reply_id))
+            new_id = cur.fetchone()[0]
+
+            msg_obj = {
+                "_id": str(new_id),
+                "content": content,
+                "senderId": str(sender_id),
+                "date": now.split('T')[0],
+                "timestamp": now.split('T')[1][:5],
+                "seen": False,
+                "files": payload.get('files', []),
+                "reactions": {},
+                "replyMessage": payload.get('replyMessage')
+            }
+
+            # Evento para o DESTINATÁRIO
+            # Para o destinatário de DM, a "sala" é o remetente
+            event_target = {
+                "action": "message",
+                "data": msg_obj,
+                "roomId": str(sender_id)
+            }
+            background_tasks.add_task(manager.send_personal_message, f"chat:{json.dumps(event_target)}", target_id)
+
         conn.commit()
-
-        # Construir objeto para realtime (igual ao formato de leitura)
-        msg_obj = {
-            "_id": str(new_id),
-            "content": payload.get('content'),
-            "senderId": str(sender_id),
-            "date": now.split('T')[0],
-            "timestamp": now.split('T')[1][:5],
-            "seen": False,
-            "deleted": False,
-            "edited": False,
-            "files": payload.get('files', []),
-            "reactions": {},
-            "replyMessage": payload.get('replyMessage')
-        }
-
-        # Broadcast para SENDER (confirmar envio na UI dele se necessário, mas a lib já trata)
-        # Broadcast para TARGET
-        # Formato: chat:{ action: 'message', data: msg_obj, roomId: ... }
-        # OBS: O roomId para o target é o sender_id!
-
-        # Evento para o DESTINATÁRIO
-        event_target = {
-            "action": "message",
-            "data": msg_obj,
-            "roomId": str(sender_id) # Para o target, a sala é o sender
-        }
-        background_tasks.add_task(manager.send_personal_message, f"chat:{json.dumps(event_target)}", target_id)
-
-        # O sender já tem a msg otimista, mas podemos confirmar ID se precisar.
-        # Por enquanto o vue-advanced-chat lida bem com isso.
-
         return msg_obj
     finally:
         conn.close()
@@ -252,14 +383,12 @@ def send_message_v2(background_tasks: BackgroundTasks, payload: dict = Body(...)
 def upload_files(files: List[UploadFile] = File(...)):
     uploaded = []
     ALLOWED_EXTS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'txt', 'docx', 'zip', 'mp3', 'wav', 'ogg', 'webm', 'mp4'}
-
     os.makedirs("frontend/uploads", exist_ok=True)
 
     for file in files:
         try:
             ext = file.filename.split('.')[-1].lower()
-            if ext not in ALLOWED_EXTS:
-                continue # Skip invalid
+            if ext not in ALLOWED_EXTS: continue
 
             filename = f"{uuid.uuid4()}.{ext}"
             path = f"frontend/uploads/{filename}"
@@ -267,12 +396,9 @@ def upload_files(files: List[UploadFile] = File(...)):
             with open(path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
 
-            # Formato esperado pelo vue-advanced-chat
-            # { name, size, type, audio, duration, url, preview }
-
             is_image = ext in ['png', 'jpg', 'jpeg', 'gif']
-            is_audio = ext in ['mp3', 'wav', 'ogg']
             is_video = ext in ['mp4', 'webm']
+            is_audio = ext in ['mp3', 'wav', 'ogg']
 
             file_type = ext
             if is_image: file_type = 'image'
@@ -281,7 +407,7 @@ def upload_files(files: List[UploadFile] = File(...)):
 
             uploaded.append({
                 "name": file.filename,
-                "size": 0, # Poderia pegar os.path.getsize(path)
+                "size": 0,
                 "type": file_type,
                 "extension": ext,
                 "url": f"/uploads/{filename}",
@@ -294,36 +420,30 @@ def upload_files(files: List[UploadFile] = File(...)):
 
 @router.put("/chat/message/{id}")
 def edit_message(id: int, background_tasks: BackgroundTasks, payload: dict = Body(...)):
-    # payload: { action: 'edit'|'react'|'delete', content?, reaction? }
     conn = get_db()
     try:
         cur = conn.cursor()
         action = payload.get('action')
 
-        # Pega info da msg para saber quem notificar
-        cur.execute("SELECT sender_id, target_id, reactions FROM messages WHERE id=%s", (id,))
+        cur.execute("SELECT sender_id, target_id, reactions, room_id, type FROM messages WHERE id=%s", (id,))
         row = cur.fetchone()
         if not row: return {"error": "Not found"}
 
-        sender_id, target_id, current_reactions = row[0], row[1], row[2]
+        sender_id, target_id, current_reactions, room_id, msg_type = row
         if isinstance(current_reactions, str): current_reactions = json.loads(current_reactions)
         if current_reactions is None: current_reactions = {}
 
         if action == 'edit':
             new_content = payload.get('content')
             cur.execute("UPDATE messages SET content=%s, edited=TRUE WHERE id=%s", (new_content, id))
-
         elif action == 'delete':
             cur.execute("UPDATE messages SET deleted=TRUE WHERE id=%s", (id,))
-
         elif action == 'react':
-            # payload: { reaction: 'emoji', remove: bool, userId: ... }
             emoji = payload.get('reaction')
             remove = payload.get('remove')
-            user_id = str(payload.get('userId')) # ID de quem reagiu
+            user_id = str(payload.get('userId'))
 
             users_reacted = current_reactions.get(emoji, [])
-
             if remove:
                 if user_id in users_reacted: users_reacted.remove(user_id)
                 if not users_reacted: del current_reactions[emoji]
@@ -331,23 +451,36 @@ def edit_message(id: int, background_tasks: BackgroundTasks, payload: dict = Bod
             else:
                 if user_id not in users_reacted: users_reacted.append(user_id)
                 current_reactions[emoji] = users_reacted
-
             cur.execute("UPDATE messages SET reactions=%s WHERE id=%s", (json.dumps(current_reactions), id))
 
         conn.commit()
 
-        # Broadcast update
+        # Broadcast
         update_event = {
             "action": action,
-            "roomId": str(sender_id), # Contexto depende de quem recebe, o front trata
             "messageId": str(id),
             "content": payload.get('content'),
             "reactions": current_reactions
         }
 
-        # Avisar ambos (sender e target) que a msg mudou
-        background_tasks.add_task(manager.send_personal_message, f"chat:{json.dumps(update_event)}", sender_id)
-        background_tasks.add_task(manager.send_personal_message, f"chat:{json.dumps(update_event)}", target_id)
+        if msg_type == 'group':
+            update_event["roomId"] = room_id
+            cur.execute("SELECT user_id FROM chat_room_members WHERE room_id=%s", (room_id,))
+            for m in cur.fetchall():
+                background_tasks.add_task(manager.send_personal_message, f"chat:{json.dumps(update_event)}", m[0])
+        else:
+            # DM logic
+            # roomId context for receiver is sender_id. For sender is target_id.
+            # This is tricky for updates. The frontend just needs to find the message ID.
+            # We send roomId = sender_id so the receiver knows which "room" to update.
+
+            # Notify Target
+            update_event["roomId"] = str(sender_id)
+            background_tasks.add_task(manager.send_personal_message, f"chat:{json.dumps(update_event)}", target_id)
+
+            # Notify Sender (roomId = target_id)
+            update_event["roomId"] = str(target_id)
+            background_tasks.add_task(manager.send_personal_message, f"chat:{json.dumps(update_event)}", sender_id)
 
         return {"success": True}
     finally:

@@ -125,7 +125,8 @@ def init_db():
             ("edited", "BOOLEAN DEFAULT FALSE"),
             ("distributed", "BOOLEAN DEFAULT TRUE"),
             ("saved", "BOOLEAN DEFAULT TRUE"),
-            ("failure", "BOOLEAN DEFAULT FALSE")
+            ("failure", "BOOLEAN DEFAULT FALSE"),
+            ("room_id", "TEXT")
         ]
 
         for col_name, col_def in chat_cols:
@@ -135,6 +136,23 @@ def init_db():
                 print(f">>> Coluna '{col_name}' adicionada em 'messages'.")
             except Exception:
                 conn.rollback() # Ignora se já existe
+
+        # --- NOVAS TABELAS PARA GRUPOS ---
+        cur.execute("""CREATE TABLE IF NOT EXISTS chat_rooms (
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            avatar TEXT,
+            created_by INTEGER,
+            created_at TEXT
+        )""")
+
+        cur.execute("""CREATE TABLE IF NOT EXISTS chat_room_members (
+            id SERIAL PRIMARY KEY,
+            room_id TEXT,
+            user_id INTEGER,
+            joined_at TEXT,
+            UNIQUE(room_id, user_id)
+        )""")
 
         conn.commit()
 
