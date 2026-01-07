@@ -1,270 +1,299 @@
 // Arquivo: frontend/js/chat.js
 
-let activeChat = { type: 'global', targetId: null };
-let chatMessages = [];
+// Referência ao WebComponent
+let chatComponent = null;
 
 function initChat() {
-    renderChatList();
-    loadMessages();
-}
-
-function renderChatList() {
-    const list = document.getElementById('chat-list');
-    list.innerHTML = '';
-
-    // Global
-    const isActiveGlobal = activeChat.type === 'global' ? 'active' : '';
-    list.insertAdjacentHTML('beforeend', `
-        <div class="chat-item ${isActiveGlobal}" onclick="selectChat('global', null)">
-            <div class="avatar" style="background:var(--primary)">G</div>
-            <div>
-                <div style="font-weight:600; color:white;">Global</div>
-                <div style="font-size:0.75rem; color:var(--text-muted);">Todos os membros</div>
-            </div>
-        </div>
-    `);
-
-    // Users
-    USERS.forEach(u => {
-        if (u.id === currentUser.id) return;
-        const isActive = (activeChat.type === 'dm' && activeChat.targetId === u.id) ? 'active' : '';
-
-        list.insertAdjacentHTML('beforeend', `
-            <div class="chat-item ${isActive}" onclick="selectChat('dm', ${u.id})">
-                <div class="avatar" style="background:${u.color}">${u.initials}</div>
-                <div>
-                    <div style="font-weight:600; color:white;">${u.name}</div>
-                    <div style="font-size:0.75rem; color:var(--text-muted);">${u.roleDesc}</div>
-                </div>
-            </div>
-        `);
-    });
-}
-
-function selectChat(type, targetId) {
-    activeChat = { type, targetId };
-
-    // Update Header
-    const title = document.getElementById('chat-header-title');
-    const desc = document.getElementById('chat-header-desc');
-
-    if (type === 'global') {
-        title.innerText = 'Global';
-        desc.innerText = 'Todos os membros';
-    } else {
-        const u = USERS.find(x => x.id === targetId);
-        title.innerText = u ? u.name : 'Usuário';
-        desc.innerText = u ? u.roleDesc : '';
+    // Registrar Web Component (CDN)
+    if (window['vue-advanced-chat']) {
+        window['vue-advanced-chat'].register();
     }
 
-    renderChatList(); // Update active class
-    loadMessages();
-}
+    chatComponent = document.getElementById('chat-component');
 
-async function loadMessages() {
-    const container = document.getElementById('chat-messages');
-    container.innerHTML = '<div style="text-align:center; color:#64748b; margin-top:20px;">Carregando...</div>';
+    if (!currentUser) return;
 
-    let url = '/chat/messages?type=global';
-    if (activeChat.type === 'dm') {
-        url = `/chat/dm?user1=${currentUser.id}&user2=${activeChat.targetId}`;
-    }
+    // Configuração básica do componente
+    chatComponent.currentUserId = currentUser.id.toString();
+    chatComponent.theme = 'dark';
 
-    const res = await fetchAPI(url);
-    if (res) {
-        chatMessages = res;
-        renderMessages();
-    }
-}
-
-function renderMessages() {
-    const container = document.getElementById('chat-messages');
-    container.innerHTML = '';
-
-    if (chatMessages.length === 0) {
-        container.innerHTML = '<div style="text-align:center; color:#64748b; margin-top:50px;">Nenhuma mensagem ainda.</div>';
-        return;
-    }
-
-    chatMessages.forEach(msg => {
-        const isMe = msg.sender_id === currentUser.id;
-        const time = new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-        let attachmentHtml = '';
-        if (msg.attachment) {
-            if (msg.attachment.match(/\.(jpeg|jpg|gif|png)$/i)) {
-                attachmentHtml = `<img src="${msg.attachment}" class="chat-img-preview" onclick="window.open('${msg.attachment}')">`;
-            } else if (msg.attachment.match(/\.(mp3|wav|ogg|webm)$/i)) {
-                attachmentHtml = `<div style="margin-top:5px;"><audio controls src="${msg.attachment}"></audio></div>`;
-            } else {
-                attachmentHtml = `<div style="margin-top:5px;"><a href="${msg.attachment}" target="_blank" style="color:white; text-decoration:underline;">📄 Abrir Arquivo</a></div>`;
-            }
+    // Mapeamento de Estilos (TaskFlow Palette)
+    // Cores extraídas do styles.css
+    chatComponent.styles = JSON.stringify({
+        general: {
+            color: '#f1f5f9', // --text-main
+            colorSpinner: '#3b82f6', // --primary
+            borderStyle: 'none',
+            background: '#0f172a' // --bg-body
+        },
+        container: {
+            border: 'none',
+            borderRadius: '0',
+            boxShadow: 'none'
+        },
+        header: {
+            background: '#1e293b', // --bg-sidebar
+            colorRoomName: '#fff',
+            colorRoomInfo: '#94a3b8' // --text-muted
+        },
+        footer: {
+            background: '#1e293b',
+            borderTop: '1px solid #475569', // --border
+            colorInputText: '#fff'
+        },
+        sidebar: {
+            background: '#1e293b',
+            borderRight: '1px solid #475569',
+            colorSearch: '#fff'
+        },
+        message: {
+            background: '#334155', // --bg-card (others)
+            backgroundMe: '#3b82f6', // --primary (me)
+            color: '#fff',
+            colorStarted: '#94a3b8'
         }
-
-        // Trash icon for deletion (if me)
-        const deleteBtn = isMe || currentUser.role === 'admin'
-            ? `<span style="cursor:pointer; margin-left:8px; font-size:0.8rem; opacity:0.5;" title="Apagar" onclick="deleteChatMessage(${msg.id})">🗑️</span>`
-            : '';
-
-        const html = `
-            <div class="chat-msg ${isMe ? 'me' : ''}">
-                ${!isMe ? `<div class="mini-av" style="background:${msg.sender_color}; min-width:32px; height:32px;">${msg.sender_initials}</div>` : ''}
-                <div>
-                    <div class="chat-msg-meta">
-                        ${isMe ? 'Você' : msg.sender_name} • ${time}
-                        ${deleteBtn}
-                    </div>
-                    <div class="chat-msg-bubble">
-                        ${msg.content ? `<div>${msg.content}</div>` : ''}
-                        ${attachmentHtml}
-                    </div>
-                </div>
-            </div>
-        `;
-        container.insertAdjacentHTML('beforeend', html);
     });
 
-    container.scrollTop = container.scrollHeight;
+    // Traduções
+    chatComponent.textMessages = JSON.stringify({
+        ROOMS_EMPTY: 'Sem conversas',
+        ROOM_EMPTY: 'Selecione uma conversa',
+        NEW_MESSAGES: 'Novas mensagens',
+        MESSAGE_DELETED: 'Mensagem apagada',
+        MESSAGES_EMPTY: 'Nenhuma mensagem',
+        CONVERSATION_STARTED: 'Conversa iniciada em:',
+        TYPE_MESSAGE: 'Digite sua mensagem...',
+        SEARCH: 'Buscar',
+        IS_ONLINE: 'Online',
+        LAST_SEEN: 'Visto por último ',
+        IS_TYPING: 'está digitando...',
+        CANCEL_SELECT_MESSAGE: 'Cancelar Seleção'
+    });
+
+    // Event Listeners do Componente
+    chatComponent.addEventListener('fetch-messages', handleFetchMessages);
+    chatComponent.addEventListener('send-message', handleSendMessage);
+    chatComponent.addEventListener('edit-message', handleEditMessage);
+    chatComponent.addEventListener('delete-message', handleDeleteMessage);
+    chatComponent.addEventListener('send-message-reaction', handleReaction);
+
+    // Carregar lista de salas (Usuários)
+    loadRooms();
 }
 
-async function deleteChatMessage(id) {
-    if(confirm("Apagar mensagem?")) {
-        await fetchAPI(`/chat/message/${id}`, 'DELETE');
+async function loadRooms() {
+    // Busca a lista de usuários formatada como rooms
+    const rooms = await fetchAPI(`/chat/rooms?current_user_id=${currentUser.id}`);
+    if (rooms) {
+        chatComponent.rooms = JSON.stringify(rooms);
+        chatComponent.roomsLoaded = true;
     }
 }
 
-async function sendChatMessage() {
-    const input = document.getElementById('chat-input');
-    const txt = input.value;
-    if (!txt && !pendingUpload) return;
+async function handleFetchMessages(event) {
+    const { room, options } = event.detail[0];
+
+    // Mostra loading
+    chatComponent.messagesLoaded = false;
+
+    // Busca mensagens do backend
+    const msgs = await fetchAPI(`/chat/messages?roomId=${room.roomId}&currentUserId=${currentUser.id}`);
+
+    if (msgs) {
+        chatComponent.messages = JSON.stringify(msgs);
+        chatComponent.messagesLoaded = true;
+    }
+}
+
+async function handleSendMessage(event) {
+    const { roomId, content, files, replyMessage } = event.detail[0];
+
+    // Se houver arquivos (blobs), precisamos fazer upload primeiro
+    let uploadedFiles = [];
+    if (files && files.length > 0) {
+        const formData = new FormData();
+        files.forEach(f => formData.append('files', f.blob, f.name));
+
+        try {
+            // Usa fetch direto pois api.js pode não tratar list de upload do jeito certo se não adaptar
+            const token = localStorage.getItem('token');
+            const headers = {};
+            // if (token) headers['Authorization'] = `Bearer ${token}`; // Se usar Auth
+            // Não setar Content-Type para multipart form data, o browser faz isso com boundary
+
+            const res = await fetch(`${API_URL}/chat/upload`, {
+                method: 'POST',
+                body: formData,
+                headers: { 'ngrok-skip-browser-warning': 'true' }
+            });
+            uploadedFiles = await res.json();
+
+        } catch (e) {
+            console.error("Erro upload", e);
+            showToast("Erro ao enviar arquivos", "error");
+            return;
+        }
+    }
 
     const payload = {
         senderId: currentUser.id,
-        targetId: activeChat.targetId,
-        type: activeChat.type,
-        content: txt,
-        attachment: pendingUpload
+        roomId: roomId, // Target User ID
+        content: content,
+        files: uploadedFiles,
+        replyMessage: replyMessage
     };
 
-    input.value = '';
-    pendingUpload = null; // Clear
-    document.getElementById('chat-file-upload').value = ''; // Reset file input
+    // Envia mensagem
+    const newMsg = await fetchAPI('/chat/message', 'POST', payload);
 
-    // Optimistic append? Maybe just wait for WS for simplicity in chat sync
-    await fetchAPI('/chat/message', 'POST', payload);
-}
+    // A lib vue-advanced-chat adiciona a mensagem otimisticamente se a prop `auto-scroll` estiver configurada para tal,
+    // mas geralmente espera-se que a gente atualize a prop `messages` ou deixe o realtime fazer isso.
+    // Como implementamos o retorno, se quiséssemos adicionar manualmente:
+    // const currentMsgs = JSON.parse(chatComponent.messages);
+    // currentMsgs.push(newMsg);
+    // chatComponent.messages = JSON.stringify(currentMsgs);
 
-// File Upload
-let pendingUpload = null;
-async function uploadChatFile() {
-    const fileInput = document.getElementById('chat-file-upload');
-    const file = fileInput.files[0];
-    if (!file) return;
+    // Mas vamos confiar no realtime (WS) para consistência ou na resposta imediata?
+    // A resposta do POST já é o objeto. Se o componente não atualizar sozinho (visto que não usamos :messages.sync no vanilla de forma direta),
+    // podemos ter que forçar.
+    // O evento `send-message` NÃO adiciona a mensagem automaticamente no array `messages` interno do componente quando usado via prop string.
 
-    await performFileUpload(file);
-}
+    // No entando, o backend vai mandar um evento WS logo em seguida.
+    // Se adicionarmos aqui E o WS chegar, pode duplicar se não tivermos cuidado com IDs.
+    // O backend retorna o ID real. O componente gera um ID temporário? Não, nós mandamos o conteúdo.
+    // Melhor abordagem: adicionar o retorno do backend às mensagens atuais.
 
-async function performFileUpload(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    showToast("Enviando arquivo...", "normal");
-
-    try {
-        const res = await fetch(`${API_URL}/chat/upload`, {
-            method: 'POST',
-            body: formData
-        });
-        const data = await res.json();
-
-        if (data.url) {
-            pendingUpload = data.url;
-            sendChatMessage(); // Auto-send
-        } else {
-            showToast("Erro no upload", "error");
-        }
-    } catch (e) {
-        console.error(e);
-        showToast("Erro no upload", "error");
+    /*
+       NOTA: Se o WS for rápido, ele chega quase junto.
+       Vamos adicionar manualmente para garantir UX rápida.
+    */
+    if (newMsg) {
+        addMessageToComponent(newMsg);
     }
 }
 
-// Audio Recording
-let mediaRecorder = null;
-let audioChunks = [];
-
-async function toggleRecording() {
-    const btn = document.getElementById('btn-mic');
-
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-        // Stop
-        mediaRecorder.stop();
-        btn.innerHTML = '🎤';
-        btn.classList.remove('recording');
-        btn.style.color = '';
-    } else {
-        // Start
-        if (!navigator.mediaDevices) {
-            alert("Microfone não suportado ou sem permissão.");
-            return;
-        }
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
-
-            mediaRecorder.ondataavailable = event => {
-                audioChunks.push(event.data);
-            };
-
-            mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                // Convert blob to file
-                const file = new File([audioBlob], "audio_message.webm", { type: 'audio/webm' });
-                await performFileUpload(file);
-            };
-
-            mediaRecorder.start();
-            btn.innerHTML = '⏹️';
-            btn.classList.add('recording');
-            btn.style.color = 'red';
-        } catch (err) {
-            console.error(err);
-            alert("Erro ao acessar microfone.");
-        }
-    }
+async function handleEditMessage(event) {
+    const { messageId, newContent, roomId } = event.detail[0];
+    await fetchAPI(`/chat/message/${messageId}`, 'PUT', {
+        action: 'edit',
+        content: newContent
+    });
+    // Realtime vai atualizar a UI
 }
 
-// Handle WS Event
+async function handleDeleteMessage(event) {
+    const { message, roomId } = event.detail[0];
+    await fetchAPI(`/chat/message/${message._id}`, 'PUT', {
+        action: 'delete'
+    });
+    // Realtime vai atualizar a UI
+}
+
+async function handleReaction(event) {
+    const { messageId, reaction, remove, roomId } = event.detail[0];
+    await fetchAPI(`/chat/message/${messageId}`, 'PUT', {
+        action: 'react',
+        reaction: reaction.unicode,
+        remove: remove,
+        userId: currentUser.id
+    });
+}
+
+// --- INTEGRAÇÃO WEBSOCKET ---
+// Chamado pelo main.js quando chega mensagem "chat:..."
 function handleChatNotification(payload) {
-    if (payload.action === 'create') {
-        const data = payload.data;
-        // Check if message belongs to active view
-        let shouldRender = false;
+    if (!chatComponent) return;
 
-        if (activeChat.type === 'global' && data.type === 'global') {
-            shouldRender = true;
-        } else if (activeChat.type === 'dm') {
-            if (data.sender_id === currentUser.id && data.target_id === activeChat.targetId) shouldRender = true;
-            if (data.sender_id === activeChat.targetId && data.target_id === currentUser.id) shouldRender = true;
-        }
+    const { action, data, roomId } = payload;
 
-        if (shouldRender) {
-            chatMessages.push(data);
-            renderMessages();
-            if (data.sender_id !== currentUser.id) {
-                if (window.playNotificationSound) playNotificationSound();
-            }
+    // Se for mensagem nova
+    if (action === 'message') {
+        // data é o objeto da mensagem
+        // roomId no payload do target é o senderId.
+
+        // Verifica se a sala aberta é a do remetente
+        if (chatComponent.roomId === roomId) {
+            addMessageToComponent(data);
+
+            // Marca como lida no backend (opcional, já fazemos no GET, mas realtime pode precisar)
+            // fetchAPI(...)
         } else {
-            if (data.type === 'dm' && data.target_id === currentUser.id) {
-                showToast(`Nova mensagem de ${data.sender_name}`, "success");
+            // Incrementa contador na lista de salas se não estiver aberta
+            updateRoomUnread(roomId, data);
+
+            // Som de notificação se não fui eu
+            if (data.senderId !== currentUser.id.toString()) {
                 if (window.playNotificationSound) playNotificationSound();
-                if (window.triggerDesktopNotification) triggerDesktopNotification(`Mensagem de ${data.sender_name}`, data.content || "Enviou um anexo");
+                showToast(`Nova mensagem de ${data.senderId}`, "success"); // Melhorar pegando nome
             }
         }
-    } else if (payload.action === 'delete') {
-        const id = payload.id;
-        chatMessages = chatMessages.filter(m => m.id !== id);
-        renderMessages();
+    }
+
+    // Se for edição/deleção/reação
+    if (['edit', 'delete', 'react'].includes(action)) {
+        // Se a sala estiver aberta, atualiza a mensagem específica
+        if (chatComponent.roomId === payload.roomId || chatComponent.roomId === payload.senderId) {
+            // Precisamos atualizar o array de mensagens
+            // O componente não tem método direto "updateMessage", temos que manipular o array 'messages'
+            updateMessageInList(payload);
+        }
+    }
+}
+
+function addMessageToComponent(msg) {
+    // Evita duplicatas (se já veio pelo retorno do POST)
+    const currentMsgs = JSON.parse(chatComponent.messages || '[]');
+    if (currentMsgs.find(m => m._id === msg._id)) return;
+
+    chatComponent.messages = JSON.stringify([...currentMsgs, msg]);
+}
+
+function updateMessageInList(payload) {
+    const currentMsgs = JSON.parse(chatComponent.messages || '[]');
+    const idx = currentMsgs.findIndex(m => m._id === payload.messageId);
+    if (idx === -1) return;
+
+    const msg = currentMsgs[idx];
+
+    if (payload.action === 'delete') {
+        msg.deleted = true;
+        msg.content = '🚫 Mensagem apagada';
+        msg.disableActions = true;
+        msg.disableReactions = true;
+    } else if (payload.action === 'edit') {
+        msg.content = payload.content;
+        msg.edited = true;
+    } else if (payload.action === 'react') {
+        msg.reactions = payload.reactions;
+    }
+
+    // Reatribui para forçar update
+    currentMsgs[idx] = msg;
+    chatComponent.messages = JSON.stringify([...currentMsgs]);
+}
+
+async function updateRoomUnread(targetRoomId, lastMsg) {
+    // Atualiza a lista de quartos (sobe pro topo, aumenta contador)
+    // Precisamos recarregar rooms ou manipular o JSON 'rooms'
+
+    const currentRooms = JSON.parse(chatComponent.rooms || '[]');
+    const roomIdx = currentRooms.findIndex(r => r.roomId === targetRoomId);
+
+    if (roomIdx !== -1) {
+        const room = currentRooms[roomIdx];
+        room.unreadCount = (room.unreadCount || 0) + 1;
+        room.lastMessage = {
+            content: lastMsg.content,
+            senderId: lastMsg.senderId,
+            timestamp: lastMsg.timestamp,
+            new: true
+        };
+        // Move pro topo
+        currentRooms.splice(roomIdx, 1);
+        currentRooms.unshift(room);
+        chatComponent.rooms = JSON.stringify([...currentRooms]);
+    } else {
+        // Se sala não existe (novo usuário?), recarrega tudo
+        loadRooms();
     }
 }
