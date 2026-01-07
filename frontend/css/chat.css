@@ -25,12 +25,11 @@
 .chat-msg-bubble {
     background: var(--bg-card);
     border: 1px solid var(--border);
-    padding: 8px 12px;
+    padding: 12px 18px; /* Increased padding slightly */
     border-radius: 0 12px 12px 12px;
     max-width: 75%;
-    width: fit-content;
     position: relative;
-    line-height: 1.4;
+    line-height: 1.5; /* Better readability */
     word-break: break-word;
     overflow-wrap: anywhere;
     white-space: pre-wrap;

@@ -227,6 +227,15 @@
                         <div class="filter-group"><label>📅 Data Fim</label><input type="date" id="audit-date-end" class="form-input"></div>
                         <div class="filter-group"><label>👤 Colaborador</label><select id="filter-audit-user" class="form-input"></select></div>
                         <div class="filter-group"><label>🏢 Empresa</label><select id="filter-audit-company" class="form-input"></select></div>
+                        <div class="filter-group">
+                            <label>📌 Status</label>
+                            <select id="filter-audit-status" class="form-input">
+                                <option value="">-- Todos --</option>
+                                <option value="todo">Pendente</option>
+                                <option value="doing">Em Andamento</option>
+                                <option value="done">Concluído</option>
+                            </select>
+                        </div>
                         <button class="btn-primary" style="margin-bottom: 2px;" onclick="renderAuditData(1)">🔍 Filtrar</button>
                     </div>
 
@@ -237,7 +246,8 @@
                     <div class="audit-table-header">
                         <div>TAREFA / DESCRIÇÃO</div>
                         <div>EMPRESA</div>
-                        <div>RESPONSÁVEL / DATA</div>
+                        <div>VENCIMENTO</div>
+                        <div>RESPONSÁVEL / CONCLUSÃO</div>
                         <div style="text-align: right;">STATUS</div>
                     </div>
 
