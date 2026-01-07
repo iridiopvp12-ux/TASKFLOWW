@@ -76,12 +76,12 @@
 
         <main id="main-content">
 
-            <div id="view-chat" class="view-section" style="overflow: hidden; padding: 0;">
+            <div id="view-chat" class="view-section" style="overflow: hidden; padding: 0; height: calc(100vh - 82px);">
                 <vue-advanced-chat
                     id="chat-component"
                     height="100%"
                     theme="dark"
-                    :show-add-room="false"
+                    :show-add-room="true"
                     :show-audio="true"
                     :show-files="true"
                     :show-emojis="true"
