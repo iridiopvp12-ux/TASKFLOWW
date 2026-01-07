@@ -27,6 +27,7 @@ async function renderAuditData(page = 1) {
     const userId = document.getElementById('filter-audit-user').value;
     const compSelect = document.getElementById('filter-audit-company');
     const compId = compSelect ? compSelect.value : '';
+    const statusVal = document.getElementById('filter-audit-status').value;
     const dateStart = document.getElementById('audit-date-start').value;
     const dateEnd = document.getElementById('audit-date-end').value;
     
@@ -45,6 +46,7 @@ async function renderAuditData(page = 1) {
     let url = `/audit-tasks?skip=${skip}&limit=${AUDIT_DATA_STATE.itemsPerPage}`;
     if (userId) url += `&user_id=${userId}`;
     if (compId) url += `&company_id=${compId}`;
+    if (statusVal) url += `&status=${statusVal}`;
     if (dateStart) url += `&date_start=${dateStart}`;
     if (dateEnd) url += `&date_end=${dateEnd}`;
     
@@ -52,7 +54,7 @@ async function renderAuditData(page = 1) {
     if (searchText) url += `&search=${encodeURIComponent(searchText)}`;
     
     // Salva estado para CSV
-    AUDIT_DATA_STATE.currentFilters = { userId, compId, dateStart, dateEnd, searchText };
+    AUDIT_DATA_STATE.currentFilters = { userId, compId, statusVal, dateStart, dateEnd, searchText };
 
     const response = await fetchAPI(url, 'GET');
 
@@ -73,8 +75,15 @@ async function renderAuditData(page = 1) {
         auditData.forEach(task => {
             const companyName = task.companyName || 'Interna';
             const assigneeName = task.userName || 'Não atribuído';
-            const completedDate = formatDate(task.completedAt);
+            const completedDate = task.completedAt ? formatDate(task.completedAt) : '---';
+            const dueDate = task.dueDate ? formatDate(task.dueDate) : '---';
             const prioClass = getPrioClass(task.prio);
+
+            let statusHtml = '';
+            if(task.status === 'done') statusHtml = `<span class="badge b-low">CONCLUÍDO</span>`;
+            else if(task.status === 'doing') statusHtml = `<span class="badge b-med">EM ANDAMENTO</span>`;
+            else if(task.status === 'archived') statusHtml = `<span class="badge" style="background:#475569; color:#cbd5e1;">ARQUIVADO</span>`;
+            else statusHtml = `<span class="badge b-high">PENDENTE</span>`;
 
             let subtasksHtml = '';
             if (task.subtasks && task.subtasks.length > 0) {
@@ -96,12 +105,13 @@ async function renderAuditData(page = 1) {
                 <div class="audit-row" onclick="toggleAuditRow('${rowId}')">
                     <div style="font-weight:600; color:white;">${task.desc}</div>
                     <div style="color:var(--primary);">${companyName}</div>
+                    <div style="font-size:0.85rem; color:#cbd5e1;">${dueDate}</div>
                     <div style="font-size:0.85rem;">
                         <div style="color:white;">${assigneeName}</div>
-                        <div style="color:var(--text-muted);">${completedDate}</div>
+                        <div style="color:var(--text-muted); font-size:0.75rem;">Conclusão: ${completedDate}</div>
                     </div>
                     <div style="text-align:right;">
-                        <span class="badge b-${prioClass}">${task.prio}</span>
+                        ${statusHtml}
                     </div>
                 </div>
                 <div id="${rowId}" style="display:none;">${subtasksHtml}</div>
@@ -162,10 +172,11 @@ function renderPaginationControls(container) {
 
 // Exportar com Search
 async function exportAuditCSV() {
-    const { userId, compId, dateStart, dateEnd, searchText } = AUDIT_DATA_STATE.currentFilters;
+    const { userId, compId, statusVal, dateStart, dateEnd, searchText } = AUDIT_DATA_STATE.currentFilters;
     let url = `/audit-tasks?skip=0&limit=1000`;
     if (userId) url += `&user_id=${userId}`;
     if (compId) url += `&company_id=${compId}`;
+    if (statusVal) url += `&status=${statusVal}`;
     if (dateStart) url += `&date_start=${dateStart}`;
     if (dateEnd) url += `&date_end=${dateEnd}`;
     if (searchText) url += `&search=${encodeURIComponent(searchText)}`;
@@ -175,12 +186,14 @@ async function exportAuditCSV() {
 
     const data = res.data;
     let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "ID,Tarefa,Empresa,Responsavel,Status,Prioridade,Data Conclusao,Checklist\n";
+    csvContent += "ID,Tarefa,Empresa,Responsavel,Status,Prioridade,Vencimento,Conclusao,Checklist\n";
 
     data.forEach(t => {
         const sub = t.subtasks ? t.subtasks.map(s => `[${s.done?'X':' '}] ${s.text}`).join(' | ') : '';
         const safeDesc = t.desc.replace(/"/g, '""'); 
         const safeComp = (t.companyName || '').replace(/"/g, '""');
+        const safeDue = t.dueDate || '';
+        const safeDone = t.completedAt || '';
         
         const row = [
             t.id,
@@ -189,7 +202,8 @@ async function exportAuditCSV() {
             `"${t.userName || ''}"`,
             t.status,
             t.prio,
-            t.completedAt,
+            safeDue,
+            safeDone,
             `"${sub}"`
         ].join(",");
         csvContent += row + "\n";
