@@ -32,6 +32,7 @@ def get_audit_tasks(
     company_id: Optional[int] = None,
     date_start: Optional[str] = None,
     date_end: Optional[str] = None,
+    status: Optional[str] = None,
     search: Optional[str] = None,
     skip: int = 0,
     limit: int = 100
@@ -44,13 +45,9 @@ def get_audit_tasks(
         params = []
 
         # Se status for fornecido, filtra por ele.
-        # Se NÃO for fornecido, não aplica filtro de status (traz tudo: todo, doing, done, archived)
-        # O comportamento anterior era apenas done/archived. O usuário pediu para ver pendentes e em andamento.
         if status:
             query_parts.append("t.status = %s")
             params.append(status)
-
-        # Se status não for passado, não adicionamos restrição, trazendo todo o histórico/estado.
 
         if user_id is not None:
             query_parts.append("t.assigned_to = %s")
