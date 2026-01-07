@@ -3,7 +3,10 @@ async function fetchAPI(endpoint, method="GET", body=null) {
     try {
         const options = { 
             method, 
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true'
+            },
             cache: 'no-store' 
         };
         if (body) options.body = JSON.stringify(body);
