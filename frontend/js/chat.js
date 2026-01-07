@@ -101,8 +101,9 @@ async function handleFetchMessages(event) {
 
     if (msgs) {
         chatComponent.messages = JSON.stringify(msgs);
-        chatComponent.messagesLoaded = true;
     }
+    // Sempre marcar como loaded para matar o spinner
+    chatComponent.messagesLoaded = true;
 }
 
 async function handleSendMessage(event) {

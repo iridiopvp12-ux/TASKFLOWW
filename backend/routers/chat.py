@@ -82,12 +82,18 @@ def get_rooms(current_user_id: int):
             """, (current_user_id, u['id']))
             unread_count = cur.fetchone()[0]
 
+            # Gerar avatar se não existir (usando ui-avatars.com)
+            avatar_url = u.get('avatar')
+            if not avatar_url:
+                color_clean = u['color'].replace('#', '') if u['color'] else '3b82f6'
+                avatar_url = f"https://ui-avatars.com/api/?name={u['name']}&background={color_clean}&color=fff"
+
             rooms.append({
                 "roomId": str(u['id']), # Na UI, o ID da sala é o ID do outro usuário para DMs
                 "roomName": u['name'],
-                "avatar": u['initials'], # Usamos iniciais, ou url se tivesse
+                "avatar": avatar_url,
                 "users": [
-                    {"_id": str(u['id']), "username": u['name'], "avatar": u['initials'], "status": {"state": "offline"}} # Status real viria do realtime
+                    {"_id": str(u['id']), "username": u['name'], "avatar": avatar_url, "status": {"state": "offline"}} # Status real viria do realtime
                 ],
                 "unreadCount": unread_count,
                 "lastMessage": last_message_obj
