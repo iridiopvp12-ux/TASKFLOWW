@@ -1,9 +1,9 @@
 // --- MOBILE DASHBOARD ---
 function renderMobileDashboard() {
     // Basic metrics
-    document.getElementById('dash-todo').innerText = TASKS.filter(t => t.status === 'todo').length;
-    document.getElementById('dash-doing').innerText = TASKS.filter(t => t.status === 'doing').length;
-    document.getElementById('dash-done').innerText = TASKS.filter(t => t.status === 'done').length;
+    if (document.getElementById('dash-todo')) document.getElementById('dash-todo').textContent = TASKS.filter(t => t.status === 'todo').length;
+    if (document.getElementById('dash-doing')) document.getElementById('dash-doing').textContent = TASKS.filter(t => t.status === 'doing').length;
+    if (document.getElementById('dash-done')) document.getElementById('dash-done').textContent = TASKS.filter(t => t.status === 'done').length;
 
     // Chart (Reusing simplified logic from dashboard.js)
     renderMobileChart();
@@ -72,16 +72,24 @@ function renderMobileBoard() {
         const card = document.createElement('div');
         card.className = 'task-card-mobile';
         card.onclick = () => openMobileTaskDetails(t);
-        card.innerHTML = `
-            <div class="t-title">${t.description}</div>
-            <div class="t-meta">
-                <span>👤 ${assignee}</span>
-                <span>📅 ${formatDate(t.due_date)}</span>
-            </div>
-            <div class="t-meta" style="margin-top:5px; color:var(--primary);">
-                <span>🏢 ${company}</span>
-            </div>
-        `;
+
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 't-title';
+        titleDiv.textContent = t.description;
+
+        const metaDiv1 = document.createElement('div');
+        metaDiv1.className = 't-meta';
+        metaDiv1.innerHTML = `<span>👤 ${assignee}</span><span>📅 ${formatDate(t.due_date)}</span>`;
+
+        const metaDiv2 = document.createElement('div');
+        metaDiv2.className = 't-meta';
+        metaDiv2.style.marginTop = '5px';
+        metaDiv2.style.color = 'var(--primary)';
+        metaDiv2.textContent = `🏢 ${company}`;
+
+        card.appendChild(titleDiv);
+        card.appendChild(metaDiv1);
+        card.appendChild(metaDiv2);
         list.appendChild(card);
     });
 
@@ -98,24 +106,38 @@ function openMobileTaskDetails(task) {
     modal.style.display = 'flex';
     setTimeout(() => modal.classList.add('open'), 10); // CSS transition
 
-    document.getElementById('detail-title-display').innerText = task.description;
+    document.getElementById('detail-title-display').textContent = task.description;
 
     const assigneeName = USERS.find(u => u.id === task.assignee_id)?.name || 'N/A';
     const companyName = COMPANIES.find(c => c.id === task.company_id)?.name || 'Interna';
 
-    document.getElementById('detail-content').innerHTML = `
-        <div style="margin-bottom:15px; background:rgba(255,255,255,0.05); padding:10px; border-radius:8px;">
-            <div style="font-size:0.9rem; color:#94a3b8;">Status atual: <strong style="color:white; text-transform:uppercase;">${task.status}</strong></div>
-            <div style="display:flex; gap:10px; margin-top:10px;">
-                <button class="btn-secondary" onclick="moveTaskMobile('todo')">Pendente</button>
-                <button class="btn-secondary" onclick="moveTaskMobile('doing')">Exec.</button>
-                <button class="btn-secondary" onclick="moveTaskMobile('done')">Feita</button>
-            </div>
+    const contentDiv = document.getElementById('detail-content');
+    contentDiv.innerHTML = ''; // Clear
+
+    // Status Area
+    const statusArea = document.createElement('div');
+    statusArea.style.cssText = "margin-bottom:15px; background:rgba(255,255,255,0.05); padding:10px; border-radius:8px;";
+    statusArea.innerHTML = `
+        <div style="font-size:0.9rem; color:#94a3b8;">Status atual: <strong style="color:white; text-transform:uppercase;">${task.status}</strong></div>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <button class="btn-secondary" onclick="moveTaskMobile('todo')">Pendente</button>
+            <button class="btn-secondary" onclick="moveTaskMobile('doing')">Exec.</button>
+            <button class="btn-secondary" onclick="moveTaskMobile('done')">Feita</button>
         </div>
-        <p><strong>Responsável:</strong> ${assigneeName}</p>
-        <p><strong>Empresa:</strong> ${companyName}</p>
-        <p><strong>Prazo:</strong> ${formatDate(task.due_date)}</p>
     `;
+    contentDiv.appendChild(statusArea);
+
+    const infoP1 = document.createElement('p');
+    infoP1.innerHTML = `<strong>Responsável:</strong> ${assigneeName}`;
+    contentDiv.appendChild(infoP1);
+
+    const infoP2 = document.createElement('p');
+    infoP2.innerHTML = `<strong>Empresa:</strong> ${companyName}`;
+    contentDiv.appendChild(infoP2);
+
+    const infoP3 = document.createElement('p');
+    infoP3.innerHTML = `<strong>Prazo:</strong> ${formatDate(task.due_date)}`;
+    contentDiv.appendChild(infoP3);
 
     renderMobileSubtasks(task);
 }
@@ -130,13 +152,79 @@ function renderMobileSubtasks(task) {
         row.style.display = 'flex';
         row.style.gap = '10px';
         row.style.marginBottom = '5px';
-        row.innerHTML = `
-            <input type="checkbox" ${sub.done ? 'checked' : ''} onchange="toggleMobileSubtask(${idx})">
-            <span style="${sub.done ? 'text-decoration:line-through; color:gray' : ''}">${sub.text}</span>
-            <span style="margin-left:auto; color:red; cursor:pointer;" onclick="deleteMobileSubtask(${idx})">×</span>
-        `;
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = sub.done;
+        checkbox.onchange = () => toggleMobileSubtask(idx);
+
+        const span = document.createElement('span');
+        span.textContent = sub.text;
+        if(sub.done) {
+            span.style.textDecoration = 'line-through';
+            span.style.color = 'gray';
+        }
+
+        const delBtn = document.createElement('span');
+        delBtn.textContent = '×';
+        delBtn.style.cssText = "margin-left:auto; color:red; cursor:pointer;";
+        delBtn.onclick = () => deleteMobileSubtask(idx);
+
+        row.appendChild(checkbox);
+        row.appendChild(span);
+        row.appendChild(delBtn);
         list.appendChild(row);
     });
+}
+
+// --- CRUD ACTIONS ---
+
+async function saveTask() {
+    const desc = document.getElementById('input-desc').value;
+    const date = document.getElementById('input-date').value;
+    const assignee = document.getElementById('input-assignee').value;
+
+    if(!desc || !date) {
+        showToast("Preencha título e data", "error");
+        return;
+    }
+
+    const payload = {
+        description: desc,
+        due_date: date,
+        assignee_id: assignee ? parseInt(assignee) : null,
+        company_id: null, // Simple mobile creation
+        status: 'todo',
+        priority: 'Média',
+        recurrence: 'none'
+    };
+
+    const res = await fetchAPI('/tasks', 'POST', payload);
+    if(res) {
+        showToast("Tarefa criada!", "success");
+        closeModal('modal-create');
+        loadAppData(); // Refresh
+        // Clear inputs
+        document.getElementById('input-desc').value = '';
+        document.getElementById('input-date').value = '';
+    }
+}
+
+async function deleteCurrentTask() {
+    if(!currentTaskMobile) return;
+    if(!confirm("Excluir esta tarefa?")) return;
+
+    await fetchAPI(`/tasks/${currentTaskMobile.id}`, 'DELETE');
+    closeModal('modal-details');
+    showToast("Tarefa excluída", "success");
+    loadAppData();
+}
+
+async function deleteMobileSubtask(idx) {
+    if (!currentTaskMobile) return;
+    currentTaskMobile.subtasks.splice(idx, 1);
+    await fetchAPI(`/tasks/${currentTaskMobile.id}`, 'PUT', { subtasks: currentTaskMobile.subtasks });
+    renderMobileSubtasks(currentTaskMobile);
 }
 
 async function moveTaskMobile(newStatus) {
@@ -154,7 +242,7 @@ async function toggleMobileSubtask(idx) {
     await fetchAPI(`/tasks/${currentTaskMobile.id}`, 'PUT', { subtasks: currentTaskMobile.subtasks });
     renderMobileSubtasks(currentTaskMobile);
 }
-// Add deleteMobileSubtask and addSubtask (reuse similar logic from tasks.js but adapted)
+
 async function addSubtask() {
     const inp = document.getElementById('new-subtask-input');
     if (!inp.value.trim() || !currentTaskMobile) return;
@@ -187,10 +275,18 @@ function renderMobileChatMessage(msg) {
 
     const userName = USERS.find(u => u.id === msg.user_id)?.name || 'User';
 
-    div.innerHTML = `
-        <div style="font-size:0.7rem; color:gray; margin-bottom:2px; text-align:${isMine?'right':'left'}">${userName}</div>
-        <div class="msg-bubble">${msg.content}</div>
-    `;
+    // Header
+    const header = document.createElement('div');
+    header.style.cssText = `font-size:0.7rem; color:gray; margin-bottom:2px; text-align:${isMine?'right':'left'}`;
+    header.textContent = userName;
+
+    // Bubble
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    bubble.textContent = msg.content; // Safe text insertion
+
+    div.appendChild(header);
+    div.appendChild(bubble);
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
 }
