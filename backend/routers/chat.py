@@ -24,9 +24,7 @@ def get_rooms(current_user_id: int):
         cur = conn.cursor()
         # Buscar todos os usuários exceto o atual
         cur.execute("""
-            SELECT id, name, initials, color, role,
-            (SELECT state FROM users_status WHERE user_id = u.id) as status,
-            (SELECT last_changed FROM users_status WHERE user_id = u.id) as last_changed
+            SELECT id, name, initials, color, role
             FROM users u
             WHERE id != %s
             ORDER BY name ASC
