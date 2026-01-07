@@ -1,5 +1,5 @@
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles # Import moved to top
 from fastapi.responses import FileResponse # Import moved to top
@@ -62,7 +62,16 @@ app.mount("/uploads", StaticFiles(directory="frontend/uploads"), name="uploads")
 
 # Serve o HTML principal na raiz
 @app.get("/")
-async def read_index():
+async def read_index(request: Request):
+    user_agent = request.headers.get('user-agent', '').lower()
+    # Palavras-chave comuns para detecção simples de dispositivos móveis
+    mobile_agents = ["android", "webos", "iphone", "ipad", "ipod", "blackberry", "windows phone"]
+
+    if any(agent in user_agent for agent in mobile_agents):
+        # Garante que o arquivo exista antes de servir (enquanto estamos desenvolvendo)
+        if os.path.exists('frontend/mobile_index.html'):
+            return FileResponse('frontend/mobile_index.html')
+
     return FileResponse('frontend/index.html')
 
 # 5. Iniciar o Servidor
