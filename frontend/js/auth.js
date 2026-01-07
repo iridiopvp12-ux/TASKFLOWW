@@ -36,11 +36,20 @@ async function performLogin() {
         closeModal('modal-login-pass');
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('app-container').classList.add('active');
-        document.getElementById('current-name').innerText = currentUser.name;
-        document.getElementById('current-role').innerText = currentUser.roleDesc;
+
+        // Mobile-Safe DOM updates
+        const nameEl = document.getElementById('current-name');
+        if(nameEl) nameEl.innerText = currentUser.name;
+
+        const roleEl = document.getElementById('current-role');
+        if(roleEl) roleEl.innerText = currentUser.roleDesc;
+
         const av = document.getElementById('current-avatar');
-        av.innerText = currentUser.initials;
-        av.style.backgroundColor = currentUser.color;
+        if(av) {
+            av.innerText = currentUser.initials;
+            av.style.backgroundColor = currentUser.color;
+        }
+
         if (currentUser.role !== 'admin') {
             ['nav-settings', 'nav-company', 'btn-delete-task'].forEach(id => {
                 const el = document.getElementById(id); if(el) el.style.display = 'none';

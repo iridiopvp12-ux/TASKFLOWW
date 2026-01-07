@@ -4,8 +4,8 @@
 // Detecta automaticamente o endereço do servidor baseado na URL atual
 const protocol = window.location.protocol;
 const host = window.location.hostname;
-const port = "8000"; // Porta padrão do backend FastAPI
-const API_URL = `${protocol}//${host}:${port}`;
+const portStr = window.location.port ? ":" + window.location.port : "";
+const API_URL = `${protocol}//${host}${portStr}`;
 
 // ESTADO GLOBAL DA APLICAÇÃO
 let USERS = [];

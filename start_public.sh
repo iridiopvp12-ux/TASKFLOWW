@@ -14,8 +14,8 @@ echo "   If you have ngrok, open a NEW terminal window and type:"
 echo ""
 echo "   ngrok http 8000"
 echo ""
-echo "   Then copy the https://....ngrok-free.app URL and share it."
-echo "   It will automatically detect mobile vs desktop."
+echo "   Then copy the https://....ngrok-free.app URL and share it.
+echo    It will automatically detect mobile vs desktop.
 echo ""
 echo "Press [ENTER] to stop the server..."
 read
