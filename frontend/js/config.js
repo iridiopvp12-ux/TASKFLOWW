@@ -1,8 +1,11 @@
 // ===========================================
 // 🚨 CONFIGURAÇÃO DE REDE
 // ===========================================
-// Mantenha o IP/Porta do seu servidor Python (Backend) aqui!
-const API_URL = "http://192.168.2.139:8000"; 
+// Detecta automaticamente o endereço do servidor baseado na URL atual
+const protocol = window.location.protocol;
+const host = window.location.hostname;
+const port = "8000"; // Porta padrão do backend FastAPI
+const API_URL = `${protocol}//${host}:${port}`;
 
 // ESTADO GLOBAL DA APLICAÇÃO
 let USERS = [];

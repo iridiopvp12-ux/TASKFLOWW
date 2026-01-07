@@ -12,87 +12,99 @@ router = APIRouter()
 
 @router.get("/chat/messages")
 def get_messages(target_id: Optional[int] = None, type: str = "global"):
-    conn = get_db(); cur = conn.cursor()
+    conn = get_db()
+    try:
+        cur = conn.cursor()
 
-    if type == "global":
+        if type == "global":
+            cur.execute("""
+                SELECT m.id, m.sender_id, m.content, m.attachment, m.created_at, u.name as sender_name, u.initials as sender_initials, u.color as sender_color
+                FROM messages m
+                LEFT JOIN users u ON m.sender_id = u.id
+                WHERE m.type = 'global'
+                ORDER BY m.created_at ASC LIMIT 100
+            """)
+        elif type == "dm" and target_id:
+            pass
+
+        res = row_to_dict(cur)
+        return res
+    finally:
+        conn.close()
+
+@router.get("/chat/dm")
+def get_dm(user1: int, user2: int):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
         cur.execute("""
             SELECT m.id, m.sender_id, m.content, m.attachment, m.created_at, u.name as sender_name, u.initials as sender_initials, u.color as sender_color
             FROM messages m
             LEFT JOIN users u ON m.sender_id = u.id
-            WHERE m.type = 'global'
+            WHERE m.type = 'dm' AND (
+                (m.sender_id = %s AND m.target_id = %s) OR
+                (m.sender_id = %s AND m.target_id = %s)
+            )
             ORDER BY m.created_at ASC LIMIT 100
-        """)
-    elif type == "dm" and target_id:
-        pass
-
-    res = row_to_dict(cur)
-    conn.close()
-    return res
-
-@router.get("/chat/dm")
-def get_dm(user1: int, user2: int):
-    conn = get_db(); cur = conn.cursor()
-    cur.execute("""
-        SELECT m.id, m.sender_id, m.content, m.attachment, m.created_at, u.name as sender_name, u.initials as sender_initials, u.color as sender_color
-        FROM messages m
-        LEFT JOIN users u ON m.sender_id = u.id
-        WHERE m.type = 'dm' AND (
-            (m.sender_id = %s AND m.target_id = %s) OR
-            (m.sender_id = %s AND m.target_id = %s)
-        )
-        ORDER BY m.created_at ASC LIMIT 100
-    """, (user1, user2, user2, user1))
-    res = row_to_dict(cur)
-    conn.close()
-    return res
+        """, (user1, user2, user2, user1))
+        res = row_to_dict(cur)
+        return res
+    finally:
+        conn.close()
 
 @router.post("/chat/message")
 def send_message(background_tasks: BackgroundTasks, payload: dict = Body(...)):
     # payload: { senderId, targetId, type, content, attachment }
-    conn = get_db(); cur = conn.cursor()
+    conn = get_db()
+    try:
+        cur = conn.cursor()
 
-    now = datetime.now().isoformat()
-    cur.execute("INSERT INTO messages (sender_id, target_id, type, content, attachment, created_at) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
-                (payload['senderId'], payload.get('targetId'), payload['type'], payload.get('content'), payload.get('attachment'), now))
-    mid = cur.fetchone()[0]
-    conn.commit()
+        now = datetime.now().isoformat()
+        cur.execute("INSERT INTO messages (sender_id, target_id, type, content, attachment, created_at) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+                    (payload['senderId'], payload.get('targetId'), payload['type'], payload.get('content'), payload.get('attachment'), now))
+        mid = cur.fetchone()[0]
+        conn.commit()
 
-    # Fetch details for broadcast
-    cur.execute("SELECT name, initials, color FROM users WHERE id=%s", (payload['senderId'],))
-    u = cur.fetchone()
+        # Fetch details for broadcast
+        cur.execute("SELECT name, initials, color FROM users WHERE id=%s", (payload['senderId'],))
+        u = cur.fetchone()
 
-    msg_data = {
-        "id": mid,
-        "sender_id": payload['senderId'],
-        "target_id": payload.get('targetId'),
-        "type": payload['type'],
-        "content": payload.get('content'),
-        "attachment": payload.get('attachment'),
-        "created_at": now,
-        "sender_name": u[0] if u else "Unknown",
-        "sender_initials": u[1] if u else "?",
-        "sender_color": u[2] if u else "#ccc"
-    }
+        msg_data = {
+            "id": mid,
+            "sender_id": payload['senderId'],
+            "target_id": payload.get('targetId'),
+            "type": payload['type'],
+            "content": payload.get('content'),
+            "attachment": payload.get('attachment'),
+            "created_at": now,
+            "sender_name": u[0] if u else "Unknown",
+            "sender_initials": u[1] if u else "?",
+            "sender_color": u[2] if u else "#ccc"
+        }
 
-    # Broadcast event
-    event_payload = {"action": "create", "data": msg_data}
-    background_tasks.add_task(manager.broadcast, f"chat:{json.dumps(event_payload)}")
+        # Broadcast event
+        event_payload = {"action": "create", "data": msg_data}
+        background_tasks.add_task(manager.broadcast, f"chat:{json.dumps(event_payload)}")
 
-    conn.close()
-    return {"success": True}
+        return {"success": True}
+    finally:
+        conn.close()
 
 @router.delete("/chat/message/{id}")
 def delete_message(id: int, background_tasks: BackgroundTasks):
-    conn = get_db(); cur = conn.cursor()
-    # Check existence? Just delete.
-    # Ideally check permission but for MVP we trust frontend/admin
-    cur.execute("DELETE FROM messages WHERE id=%s", (id,))
-    conn.commit()
-    conn.close()
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        # Check existence? Just delete.
+        # Ideally check permission but for MVP we trust frontend/admin
+        cur.execute("DELETE FROM messages WHERE id=%s", (id,))
+        conn.commit()
 
-    event_payload = {"action": "delete", "id": id}
-    background_tasks.add_task(manager.broadcast, f"chat:{json.dumps(event_payload)}")
-    return {"success": True}
+        event_payload = {"action": "delete", "id": id}
+        background_tasks.add_task(manager.broadcast, f"chat:{json.dumps(event_payload)}")
+        return {"success": True}
+    finally:
+        conn.close()
 
 @router.post("/chat/upload")
 def upload_file(file: UploadFile = File(...)):
