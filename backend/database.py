@@ -115,6 +115,27 @@ def init_db():
             created_at TEXT
         )""")
 
+        # 🛡️ MIGRAÇÃO CHAT v2: Adicionar colunas novas se não existirem
+        chat_cols = [
+            ("files", "JSONB DEFAULT '[]'::jsonb"),
+            ("reactions", "JSONB DEFAULT '{}'::jsonb"),
+            ("reply_to_id", "INTEGER"),
+            ("seen", "BOOLEAN DEFAULT FALSE"),
+            ("deleted", "BOOLEAN DEFAULT FALSE"),
+            ("edited", "BOOLEAN DEFAULT FALSE"),
+            ("distributed", "BOOLEAN DEFAULT TRUE"),
+            ("saved", "BOOLEAN DEFAULT TRUE"),
+            ("failure", "BOOLEAN DEFAULT FALSE")
+        ]
+
+        for col_name, col_def in chat_cols:
+            try:
+                cur.execute(f"ALTER TABLE messages ADD COLUMN {col_name} {col_def}")
+                conn.commit()
+                print(f">>> Coluna '{col_name}' adicionada em 'messages'.")
+            except Exception:
+                conn.rollback() # Ignora se já existe
+
         conn.commit()
 
         # Cria admin se não existir
