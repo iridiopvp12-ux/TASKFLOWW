@@ -138,8 +138,14 @@ loadInitialData();
 // --- REALTIME (WEBSOCKET) ---
 let socket = null;
 function connectWebSocket() {
+    if (!currentUser) {
+        // Se não tiver usuário, tenta de novo em breve (espera login)
+        setTimeout(connectWebSocket, 1000);
+        return;
+    }
+
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const wsUrl = `${protocol}://${window.location.host}/ws`;
+    const wsUrl = `${protocol}://${window.location.host}/ws?user_id=${currentUser.id}`;
 
     socket = new WebSocket(wsUrl);
 

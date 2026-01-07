@@ -41,17 +41,16 @@ app.include_router(chat.router)
 
 # 3.1 Rota WebSocket (Realtime)
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
+async def websocket_endpoint(websocket: WebSocket, user_id: int = 0):
+    # O parametro user_id vem da query string ?user_id=...
+    await manager.connect(websocket, user_id)
     try:
         while True:
-            # Mantém a conexão viva e pode receber pings do cliente se necessário
             data = await websocket.receive_text()
-            # Opcional: Se o cliente enviar algo, podemos processar aqui
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        manager.disconnect(websocket, user_id)
     except Exception:
-        manager.disconnect(websocket)
+        manager.disconnect(websocket, user_id)
 
 # 4. Configuração do Frontend (PRECISA SER ANTES DO IF MAIN)
 # Serve os arquivos CSS e JS
