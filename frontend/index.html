@@ -57,7 +57,7 @@
             <div class="nav-item" id="nav-settings" onclick="switchView('settings')">⚙️ Configurações</div>
 
             <div class="user-profile">
-                <div style="position:relative; cursor:pointer; margin-right:10px;" onclick="toggleNotifPanel()">
+                <div style="position:relative; cursor:pointer;" onclick="toggleNotifPanel()">
                     <span style="font-size:1.5rem;">🔔</span>
                     <span id="notif-badge" style="position:absolute; top:-5px; right:-5px; background:var(--danger); color:white; border-radius:50%; width:18px; height:18px; font-size:0.7rem; display:flex; justify-content:center; align-items:center; display:none;">0</span>
                     <div id="notif-panel" style="display:none; position:absolute; bottom:40px; left:0; width:300px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:10px; z-index:100; box-shadow:0 5px 15px rgba(0,0,0,0.5);">
@@ -66,7 +66,7 @@
                     </div>
                 </div>
                 <div class="avatar" id="current-avatar">U</div>
-                <div style="flex: 1;">
+                <div style="flex: 1; min-width: 0;">
                     <div id="current-name" style="font-size: 0.9rem; font-weight: 600;">User</div>
                     <div id="current-role" style="font-size: 0.75rem; color: var(--text-muted);">Role</div>
                 </div>
