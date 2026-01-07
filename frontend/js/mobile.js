@@ -14,9 +14,7 @@ async function loadInitialData() {
     const users = await fetchAPI('/users');
     if (users) {
         USERS = users;
-        // We need to slightly adapt renderLoginList because the class names might differ,
-        // but let's see if we can reuse the logic from auth.js by just ensuring the container exists.
-        if (typeof renderLoginList === 'function') renderLoginList();
+        renderLoginList(); // Use our local override
     }
     if (loading) loading.style.display = 'none';
 
@@ -25,6 +23,27 @@ async function loadInitialData() {
     if (savedId && users && users.find(u => u.id == savedId)) {
         if (typeof initLogin === 'function') initLogin(parseInt(savedId));
     }
+}
+
+// Override auth.js renderLoginList for Mobile Styling
+function renderLoginList() {
+    const list = document.getElementById('login-list');
+    if (!list) return;
+    list.innerHTML = '';
+    USERS.forEach(u => {
+        const item = document.createElement('div');
+        item.className = 'login-item';
+        item.onclick = () => { if(typeof initLogin === 'function') initLogin(u.id); };
+
+        item.innerHTML = `
+            <div class="login-avatar" style="background:${u.color}">${u.initials}</div>
+            <div style="text-align:left;">
+                <div style="font-weight:600; font-size:1rem;">${u.name}</div>
+                <div style="font-size:0.8rem; color:var(--text-muted);">${u.roleDesc}</div>
+            </div>
+        `;
+        list.appendChild(item);
+    });
 }
 
 // Override or Adapt loadAppData for mobile
