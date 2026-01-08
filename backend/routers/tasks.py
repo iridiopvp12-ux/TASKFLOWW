@@ -15,12 +15,42 @@ def get_tasks():
     conn = get_db()
     try:
         cur = conn.cursor()
-        cur.execute('SELECT t.id, t.description as "desc", t.status, t.assigned_to as "assignedTo", t.priority as prio, t.due_date as "dueDate", t.completed_at as "completedAt", t.company_id as "companyId", t.subtasks, t.comments, t.recurrence, t.recurrence_day as "recurrenceDay", c.name as "companyName", u.name as "userName" FROM tasks t LEFT JOIN companies c ON t.company_id = c.id LEFT JOIN users u ON t.assigned_to = u.id ORDER BY t.id DESC')
+        # Updated query to include sector info and fetch assignees
+        # Since we can't easily join list in standard SQL (pg8000 might struggle with arrays),
+        # we'll fetch tasks first, then fetch assignee map in memory or subquery if feasible.
+        # Let's try JSON aggregation for assignees.
+
+        query = """
+            SELECT
+                t.id, t.description as "desc", t.status, t.assigned_to as "assignedTo",
+                t.priority as prio, t.due_date as "dueDate", t.completed_at as "completedAt",
+                t.company_id as "companyId", t.subtasks, t.comments,
+                t.recurrence, t.recurrence_day as "recurrenceDay",
+                t.sector_id as "sectorId",
+                c.name as "companyName", u.name as "userName",
+                s.name as "sectorName",
+                (SELECT json_agg(user_id) FROM task_assignees WHERE task_id = t.id) as "assigneeIds"
+            FROM tasks t
+            LEFT JOIN companies c ON t.company_id = c.id
+            LEFT JOIN users u ON t.assigned_to = u.id
+            LEFT JOIN sectors s ON t.sector_id = s.id
+            ORDER BY t.id DESC
+        """
+        cur.execute(query)
         res = row_to_dict(cur)
         for t in res:
              if isinstance(t['subtasks'], str): t['subtasks'] = json.loads(t['subtasks'])
              if t['comments'] is None: t['comments'] = []
              elif isinstance(t['comments'], str): t['comments'] = json.loads(t['comments'])
+
+             # Handle assigneeIds
+             if t['assigneeIds']:
+                 try:
+                     if isinstance(t['assigneeIds'], str): t['assigneeIds'] = json.loads(t['assigneeIds'])
+                 except: t['assigneeIds'] = []
+             else:
+                 t['assigneeIds'] = []
+
         return res
     finally:
         conn.close()
@@ -113,24 +143,47 @@ def create_task(t: TaskCreate, background_tasks: BackgroundTasks):
         cur = conn.cursor()
         sub_json = json.dumps([s.model_dump() for s in t.subtasks])
         comp = int(t.companyId) if t.companyId else None
-        assign = int(t.assignedTo) if t.assignedTo else None
 
-        cur.execute("INSERT INTO tasks (description, status, assigned_to, priority, due_date, completed_at, company_id, subtasks, recurrence, recurrence_day) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
-                    (t.desc, t.status, assign, t.prio, t.dueDate, t.completedAt, comp, sub_json, t.recurrence, t.recurrenceDay))
+        # Primary Assignee Logic
+        assign = None
+        if t.assignedTo: assign = int(t.assignedTo)
+        elif t.assigneeIds and len(t.assigneeIds) > 0: assign = int(t.assigneeIds[0]) # Default to first if not specified
+
+        cur.execute("INSERT INTO tasks (description, status, assigned_to, priority, due_date, completed_at, company_id, subtasks, recurrence, recurrence_day, sector_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                    (t.desc, t.status, assign, t.prio, t.dueDate, t.completedAt, comp, sub_json, t.recurrence, t.recurrenceDay, t.sectorId))
 
         tid = cur.fetchone()[0]
 
-        # Notificação se atribuído
-        if assign:
-            msg = f"Nova tarefa: {t.desc}"
-            now = datetime.now().isoformat()
-            cur.execute("INSERT INTO notifications (user_id, text, created_at, task_id) VALUES (%s, %s, %s, %s)", (assign, msg, now, tid))
+        # Multiple Assignees Insert
+        notified_users = set()
+
+        # Insert list
+        if t.assigneeIds:
+            for uid in t.assigneeIds:
+                try:
+                    cur.execute("INSERT INTO task_assignees (task_id, user_id) VALUES (%s, %s)", (tid, int(uid)))
+                    notified_users.add(int(uid))
+                except: pass # Ignore dups
+
+        # Ensure primary assign is in list if not already
+        if assign and assign not in notified_users:
+             try:
+                 cur.execute("INSERT INTO task_assignees (task_id, user_id) VALUES (%s, %s)", (tid, assign))
+                 notified_users.add(assign)
+             except: pass
+
+        # Notifications
+        now = datetime.now().isoformat()
+        msg = f"Nova tarefa: {t.desc}"
+
+        # If Sector Assigned, notify everyone in sector? (Maybe too noisy, skipping for now unless asked)
+        # Notify specific assignees
+        for uid in notified_users:
+            cur.execute("INSERT INTO notifications (user_id, text, created_at, task_id) VALUES (%s, %s, %s, %s)", (uid, msg, now, tid))
+            background_tasks.add_task(manager.broadcast, f"notification:{uid}")
 
         conn.commit()
-
-        # Notifica clientes via BackgroundTasks
         background_tasks.add_task(manager.broadcast, "update")
-        if assign: background_tasks.add_task(manager.broadcast, f"notification:{assign}")
 
         return {"id": tid}
     finally:
@@ -204,10 +257,22 @@ def process_recurrence(background_tasks: BackgroundTasks):
                         s['done_at'] = None
                     sub_json_new = json.dumps(subs)
 
+                    # Fetch original assignees
+                    cur.execute("SELECT user_id FROM task_assignees WHERE task_id = %s", (t['id'],))
+                    orig_assignees = [r[0] for r in cur.fetchall()]
+
                     cur.execute(
-                        "INSERT INTO tasks (description, status, assigned_to, priority, due_date, completed_at, company_id, subtasks, recurrence, recurrence_day) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                        (t['description'], 'todo', t['assigned_to'], t['priority'], target_date, None, t['company_id'], sub_json_new, 'none', None)
+                        "INSERT INTO tasks (description, status, assigned_to, priority, due_date, completed_at, company_id, subtasks, recurrence, recurrence_day, sector_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                        (t['description'], 'todo', t['assigned_to'], t['priority'], target_date, None, t['company_id'], sub_json_new, 'none', None, t['sector_id'])
                     )
+                    new_tid = cur.fetchone()[0]
+
+                    # Copy assignees
+                    for uid in orig_assignees:
+                        try:
+                            cur.execute("INSERT INTO task_assignees (task_id, user_id) VALUES (%s, %s)", (new_tid, uid))
+                        except: pass
+
                     created_count += 1
 
         conn.commit()

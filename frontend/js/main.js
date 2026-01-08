@@ -24,8 +24,8 @@ async function loadInitialData() {
 }
 
 async function loadAppData() {
-    const [u, c, t] = await Promise.all([fetchAPI('/users'), fetchAPI('/companies'), fetchAPI('/tasks')]);
-    if (u) USERS = u; if (c) COMPANIES = c; if (t) TASKS = t;
+    const [u, c, t, s] = await Promise.all([fetchAPI('/users'), fetchAPI('/companies'), fetchAPI('/tasks'), fetchAPI('/sectors')]);
+    if (u) USERS = u; if (c) COMPANIES = c; if (t) TASKS = t; if (s) SECTORS = s;
 
     // Carrega notificações se logado
     if (currentUser) loadNotifications();
@@ -55,6 +55,7 @@ function renderAll() {
         adminPanel.style.display = (currentUser.role === 'admin') ? 'block' : 'none';
     }
     renderSettings();
+    renderSectorsList(); // Render Sectors in Settings
 
     updateSelects();
     // Renderiza o calendário se estiver visível, ou só deixa pronto
@@ -67,11 +68,22 @@ function renderAll() {
 
 function updateSelects() {
     const userOpts = USERS.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
-    const as = document.getElementById('input-assignee'); if(as) as.innerHTML = userOpts;
+    // const as = document.getElementById('input-assignee'); if(as) as.innerHTML = userOpts; // Now handled by custom renderer
     const cs = document.getElementById('comp-default-assignee'); if(cs) cs.innerHTML = `<option value="">-- Selecione --</option>` + userOpts;
-    const fs = document.getElementById('filter-user-select'); if(fs) fs.innerHTML = `<option value="all">Todos</option>` + userOpts;
+
+    // Filtros de Kanban/Dash
+    const sectorOpts = SECTORS.map(s => `<option value="SEC:${s.id}">Setor: ${s.name}</option>`).join('');
+    const fs = document.getElementById('filter-user-select');
+    if(fs) fs.innerHTML = `<option value="all">Todos</option>` + sectorOpts + userOpts;
+
     const compOpts = `<option value="">-- Nenhuma / Interna --</option>` + COMPANIES.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
     const ccs = document.getElementById('create-company-select'); if(ccs) ccs.innerHTML = compOpts;
+
+    // User Creation Modal: Sector Select
+    const userSec = document.getElementById('user-sector');
+    if(userSec) {
+        userSec.innerHTML = `<option value="">-- Nenhum --</option>` + SECTORS.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    }
 
     // 🛡️ NOVO: Atualiza o filtro de usuários na aba Auditoria
     if (currentUser && currentUser.role === 'admin') {
@@ -188,3 +200,51 @@ function connectWebSocket() {
 
 // Inicia conexão
 connectWebSocket();
+
+// --- SECTORS UI LOGIC ---
+
+function openSectorModal() {
+    document.getElementById('sector-name').value = '';
+    const modal = document.getElementById('modal-sector');
+    modal.classList.add('open');
+    modal.style.display = 'flex';
+}
+
+async function saveSector() {
+    const name = document.getElementById('sector-name').value;
+    if(!name) return alert("Nome obrigatório");
+
+    await fetchAPI('/sectors', 'POST', { name });
+    closeModal('modal-sector');
+    // Realtime update should reload
+}
+
+function renderSectorsList() {
+    const container = document.getElementById('sector-list-settings');
+    if(!container) return;
+
+    container.innerHTML = '';
+
+    if (SECTORS.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-muted); padding:10px;">Nenhum setor cadastrado.</div>';
+        return;
+    }
+
+    SECTORS.forEach(s => {
+        const div = document.createElement('div');
+        div.className = 'data-item';
+        div.innerHTML = `
+            <div class="data-info">
+                <h4>${s.name}</h4>
+                <p>ID: ${s.id}</p>
+            </div>
+            <button class="btn-danger-outline" onclick="deleteSector(${s.id})">Excluir</button>
+        `;
+        container.appendChild(div);
+    });
+}
+
+async function deleteSector(id) {
+    if(!confirm("Tem certeza? Usuários e tarefas deste setor perderão o vínculo.")) return;
+    await fetchAPI(`/sectors/${id}`, 'DELETE');
+}

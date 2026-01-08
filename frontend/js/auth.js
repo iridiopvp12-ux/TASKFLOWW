@@ -76,10 +76,25 @@ function logout() {
 // --- GESTÃO DE USUÁRIOS ---
 function renderSettings() {
     const list = document.getElementById('user-list-settings');
+    if(!list) return;
     list.innerHTML = '';
     USERS.forEach(u => {
-        list.insertAdjacentHTML('beforeend', `<div class="data-item"><div class="data-info"><h4 style="color:${u.color}">${u.name}</h4><p>${u.roleDesc} (${u.role === 'admin' ? 'Admin' : 'Equipe'})</p></div><button class="btn-danger-outline" onclick="deleteUser(${u.id})">Remover</button></div>`);
+        const sectorText = u.sectorName ? ` | Setor: ${u.sectorName}` : '';
+        list.insertAdjacentHTML('beforeend', `<div class="data-item"><div class="data-info"><h4 style="color:${u.color}">${u.name}</h4><p>${u.roleDesc} (${u.role === 'admin' ? 'Admin' : 'Equipe'})${sectorText}</p></div><button class="btn-danger-outline" onclick="deleteUser(${u.id})">Remover</button></div>`);
     });
+}
+
+function openUserModal() {
+    document.getElementById('user-name').value = '';
+    document.getElementById('user-role-desc').value = '';
+    document.getElementById('user-initials').value = '';
+    document.getElementById('user-pass-new').value = '';
+    // Reset Sector
+    if(document.getElementById('user-sector')) document.getElementById('user-sector').value = '';
+
+    const m = document.getElementById('modal-user');
+    m.classList.add('open');
+    m.style.display = 'flex';
 }
 
 async function saveUser() {
@@ -89,13 +104,17 @@ async function saveUser() {
 
     const colors = ['#f472b6', '#22d3ee', '#a78bfa', '#34d399', '#fbbf24'];
 
+    const sectorVal = document.getElementById('user-sector').value;
+    const sectorId = sectorVal ? parseInt(sectorVal) : null;
+
     const newUser = {
         name,
         role: document.getElementById('user-perm').value,
         roleDesc: document.getElementById('user-role-desc').value,
         initials: document.getElementById('user-initials').value.toUpperCase(),
         color: colors[Math.floor(Math.random()*colors.length)],
-        password: pass
+        password: pass,
+        sectorId: sectorId
     };
 
     const res = await fetchAPI('/users', 'POST', newUser);

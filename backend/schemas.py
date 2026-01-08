@@ -27,11 +27,14 @@ class UserCreate(BaseModel):
     initials: str
     color: str
     password: str
+    sectorId: Optional[int] = None
 
 class TaskCreate(BaseModel):
     desc: str
     dueDate: str
     assignedTo: Optional[int] = None
+    assigneeIds: List[int] = []
+    sectorId: Optional[int] = None
     prio: str
     companyId: Optional[Union[str, int]] = None
     subtasks: List[Subtask] = []
