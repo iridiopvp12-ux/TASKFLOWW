@@ -210,18 +210,65 @@ async function handleReaction(event) {
 }
 
 async function handleAddRoom(event) {
-    console.log("Add Room Clicked", event);
-
-    const roomName = prompt("Nome do Grupo:");
-    if (!roomName) return;
-
-    // Criar grupo com o usuário atual
-    // TODO: Adicionar modal para selecionar múltiplos usuários
-    const res = await fetchAPI('/chat/room', 'POST', { roomName: roomName, users: [currentUser.id] });
-    if(res) {
-        loadRooms(); // Refresh list
+    console.log("Add Room Clicked");
+    renderGroupUserSelect();
+    document.getElementById('modal-new-group').style.display = 'flex'; // Open custom modal logic or use global
+    // Se usar a classe global .modal-overlay
+    const m = document.getElementById('modal-new-group');
+    if(m) {
+        m.classList.add('open');
+        m.style.display = 'flex';
     }
 }
+
+function renderGroupUserSelect() {
+    const container = document.getElementById('new-group-users-list');
+    if(!container) return;
+    container.innerHTML = '';
+
+    USERS.forEach(u => {
+        if(u.id === currentUser.id) return; // Don't show self
+
+        const div = document.createElement('div');
+        div.style.padding = '5px';
+        div.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+        div.innerHTML = `
+            <label style="display:flex; align-items:center; cursor:pointer; margin:0;">
+                <input type="checkbox" value="${u.id}" class="group-user-checkbox" style="margin-right:10px;">
+                ${u.name}
+            </label>
+        `;
+        container.appendChild(div);
+    });
+}
+
+async function createGroup() {
+    const nameInput = document.getElementById('new-group-name');
+    const name = nameInput.value.trim();
+
+    if(!name) {
+        alert("Digite o nome do grupo.");
+        return;
+    }
+
+    const checkboxes = document.querySelectorAll('.group-user-checkbox:checked');
+    const userIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+    // Add self
+    userIds.push(currentUser.id);
+
+    const res = await fetchAPI('/chat/room', 'POST', { roomName: name, users: userIds });
+
+    if(res) {
+        // Reset and Close
+        nameInput.value = '';
+        closeModal('modal-new-group');
+        loadRooms();
+    }
+}
+
+// Expose to window for HTML button
+window.createGroup = createGroup;
 
 // --- INTEGRAÇÃO WEBSOCKET ---
 // Chamado pelo main.js quando chega mensagem "chat:..."
