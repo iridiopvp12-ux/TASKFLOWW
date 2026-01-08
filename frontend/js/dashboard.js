@@ -158,6 +158,7 @@ function renderCharts(startDate, endDate, filteredDone, viewTasks) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            layout: { padding: { top: 25, right: 10, left: 10, bottom: 0 } },
             plugins: {
                 legend: { display: false },
                 datalabels: {
@@ -204,6 +205,7 @@ function renderCharts(startDate, endDate, filteredDone, viewTasks) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            layout: { padding: { top: 25, right: 10, left: 10, bottom: 0 } },
             plugins: {
                 legend: { display: false },
                 datalabels: {
