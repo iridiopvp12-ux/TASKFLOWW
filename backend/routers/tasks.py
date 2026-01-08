@@ -6,7 +6,7 @@ from ..schemas import TaskCreate, StandardTaskCreate
 from ..realtime import manager
 from datetime import datetime
 
-print(">>> LOADING TASKS ROUTER v2.1 (FIXED) <<<")
+print(">>> LOADING TASKS ROUTER v3.0 (NORMALIZED) <<<")
 
 router = APIRouter()
 
@@ -15,16 +15,13 @@ def get_tasks():
     conn = get_db()
     try:
         cur = conn.cursor()
-        # Updated query to include sector info and fetch assignees
-        # Since we can't easily join list in standard SQL (pg8000 might struggle with arrays),
-        # we'll fetch tasks first, then fetch assignee map in memory or subquery if feasible.
-        # Let's try JSON aggregation for assignees.
 
+        # 1. Fetch Main Tasks
         query = """
             SELECT
                 t.id, t.description as "desc", t.status, t.assigned_to as "assignedTo",
                 t.priority as prio, t.due_date as "dueDate", t.completed_at as "completedAt",
-                t.company_id as "companyId", t.subtasks, t.comments,
+                t.company_id as "companyId",
                 t.recurrence, t.recurrence_day as "recurrenceDay",
                 t.recurrence_active as "recurrenceActive",
                 t.sector_id as "sectorId",
@@ -38,13 +35,43 @@ def get_tasks():
             ORDER BY t.id DESC
         """
         cur.execute(query)
-        res = row_to_dict(cur)
-        for t in res:
-             if isinstance(t['subtasks'], str): t['subtasks'] = json.loads(t['subtasks'])
-             if t['comments'] is None: t['comments'] = []
-             elif isinstance(t['comments'], str): t['comments'] = json.loads(t['comments'])
+        tasks = row_to_dict(cur)
 
-             # Handle assigneeIds
+        # 2. Fetch All Subtasks (Normalized)
+        # Avoid N+1 by fetching all and mapping in memory
+        cur.execute("SELECT * FROM task_subtasks ORDER BY id ASC")
+        all_subs = row_to_dict(cur)
+
+        # Map subtasks to tasks
+        subs_map = {}
+        for s in all_subs:
+            tid = s['task_id']
+            if tid not in subs_map: subs_map[tid] = []
+            subs_map[tid].append({
+                "text": s['text'],
+                "done": s['done'],
+                "done_by": s['done_by'],
+                "done_at": s['done_at']
+            })
+
+        # 3. Fetch All Comments (Normalized)
+        cur.execute("SELECT * FROM task_comments ORDER BY created_at ASC")
+        all_comms = row_to_dict(cur)
+
+        # Map comments to tasks
+        comms_map = {}
+        for c in all_comms:
+            tid = c['task_id']
+            if tid not in comms_map: comms_map[tid] = []
+            comms_map[tid].append({
+                "text": c['text'],
+                "author_id": c['author_id'],
+                "created_at": c['created_at']
+            })
+
+        # 4. Assemble Result
+        for t in tasks:
+             # Handle assigneeIds (pg8000 might return string for json_agg)
              if t['assigneeIds']:
                  try:
                      if isinstance(t['assigneeIds'], str): t['assigneeIds'] = json.loads(t['assigneeIds'])
@@ -52,7 +79,11 @@ def get_tasks():
              else:
                  t['assigneeIds'] = []
 
-        return res
+             # Attach Subtasks & Comments from Maps
+             t['subtasks'] = subs_map.get(t['id'], [])
+             t['comments'] = comms_map.get(t['id'], [])
+
+        return tasks
     finally:
         conn.close()
 
@@ -75,7 +106,6 @@ def get_audit_tasks(
         query_parts = []
         params = []
 
-        # Se status for fornecido, filtra por ele.
         if status:
             query_parts.append("t.status = %s")
             params.append(status)
@@ -105,7 +135,7 @@ def get_audit_tasks(
         main_query = f"""
             SELECT
                 t.id, t.description AS "desc", t.status, t.assigned_to AS "assignedTo", t.priority AS prio,
-                t.due_date AS "dueDate", t.completed_at AS "completedAt", t.subtasks,
+                t.due_date AS "dueDate", t.completed_at AS "completedAt",
                 u.name AS "userName", c.name AS "companyName"
             FROM tasks t
             LEFT JOIN users u ON t.assigned_to = u.id
@@ -125,8 +155,13 @@ def get_audit_tasks(
         cur.execute(main_query, params)
         res = row_to_dict(cur)
 
+        # Populate subtasks for audit (optional, but good for completeness)
+        # Doing individual queries here as Audit is usually paginated/small batch
         for t in res:
-             if isinstance(t['subtasks'], str): t['subtasks'] = json.loads(t['subtasks'])
+             cur.execute("SELECT text, done FROM task_subtasks WHERE task_id = %s", (t['id'],))
+             subs = row_to_dict(cur)
+             t['subtasks'] = subs # Simplified for Audit View
+
              if t['completedAt']:
                 try:
                     t['completedAt'] = t['completedAt'].isoformat()
@@ -142,31 +177,40 @@ def create_task(t: TaskCreate, background_tasks: BackgroundTasks):
     conn = get_db()
     try:
         cur = conn.cursor()
-        sub_json = json.dumps([s.model_dump() for s in t.subtasks])
+        # Note: 'subtasks' column in tasks table is ignored/deprecated now
         comp = int(t.companyId) if t.companyId else None
 
         # Primary Assignee Logic
         assign = None
         if t.assignedTo: assign = int(t.assignedTo)
-        elif t.assigneeIds and len(t.assigneeIds) > 0: assign = int(t.assigneeIds[0]) # Default to first if not specified
+        elif t.assigneeIds and len(t.assigneeIds) > 0: assign = int(t.assigneeIds[0])
 
-        cur.execute("INSERT INTO tasks (description, status, assigned_to, priority, due_date, completed_at, company_id, subtasks, recurrence, recurrence_day, sector_id, recurrence_active) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
-                    (t.desc, t.status, assign, t.prio, t.dueDate, t.completedAt, comp, sub_json, t.recurrence, t.recurrenceDay, t.sectorId, t.recurrenceActive))
+        cur.execute("INSERT INTO tasks (description, status, assigned_to, priority, due_date, completed_at, company_id, recurrence, recurrence_day, sector_id, recurrence_active) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                    (t.desc, t.status, assign, t.prio, t.dueDate, t.completedAt, comp, t.recurrence, t.recurrenceDay, t.sectorId, t.recurrenceActive))
 
         tid = cur.fetchone()[0]
+
+        # Insert Normalized Subtasks
+        if t.subtasks:
+            for s in t.subtasks:
+                # TaskCreate subtasks are objects or dicts
+                txt = s.text
+                done = s.done
+                done_by = s.done_by
+                done_at = s.done_at
+                cur.execute("INSERT INTO task_subtasks (task_id, text, done, done_by, done_at) VALUES (%s, %s, %s, %s, %s)",
+                            (tid, txt, done, done_by, done_at))
 
         # Multiple Assignees Insert
         notified_users = set()
 
-        # Insert list
         if t.assigneeIds:
             for uid in t.assigneeIds:
                 try:
                     cur.execute("INSERT INTO task_assignees (task_id, user_id) VALUES (%s, %s)", (tid, int(uid)))
                     notified_users.add(int(uid))
-                except: pass # Ignore dups
+                except: pass
 
-        # Ensure primary assign is in list if not already
         if assign and assign not in notified_users:
              try:
                  cur.execute("INSERT INTO task_assignees (task_id, user_id) VALUES (%s, %s)", (tid, assign))
@@ -177,8 +221,6 @@ def create_task(t: TaskCreate, background_tasks: BackgroundTasks):
         now = datetime.now().isoformat()
         msg = f"Nova tarefa: {t.desc}"
 
-        # If Sector Assigned, notify everyone in sector? (Maybe too noisy, skipping for now unless asked)
-        # Notify specific assignees
         for uid in notified_users:
             cur.execute("INSERT INTO notifications (user_id, text, created_at, task_id) VALUES (%s, %s, %s, %s)", (uid, msg, now, tid))
             background_tasks.add_task(manager.broadcast, f"notification:{uid}")
@@ -196,7 +238,6 @@ def process_recurrence(background_tasks: BackgroundTasks):
     try:
         cur = conn.cursor()
 
-        # Added filtering for active recurrence
         cur.execute("SELECT * FROM tasks WHERE recurrence IN ('daily', 'weekly', 'monthly', 'fortnightly') AND recurrence_active = TRUE")
         masters = row_to_dict(cur)
 
@@ -235,8 +276,6 @@ def process_recurrence(background_tasks: BackgroundTasks):
                     if delta > 0 and delta % 15 == 0: should_create = True
 
             if should_create:
-                # CORREÇÃO CRÍTICA 2: Evitar parâmetro ambíguo no SQL para NULL
-                # Construir query condicional
                 comp_val = t['company_id']
                 if comp_val is None:
                     query = "SELECT id FROM tasks WHERE description = %s AND due_date = %s AND company_id IS NULL"
@@ -248,26 +287,23 @@ def process_recurrence(background_tasks: BackgroundTasks):
                 cur.execute(query, params)
 
                 if not cur.fetchone():
-                    # Create task
-                    sub_json = json.dumps(t['subtasks']) if isinstance(t['subtasks'], list) else t['subtasks']
-                    if not sub_json: sub_json = '[]'
+                    # Fetch master subtasks (Normalized)
+                    cur.execute("SELECT text FROM task_subtasks WHERE task_id = %s", (t['id'],))
+                    master_subs = [r[0] for r in cur.fetchall()]
 
-                    subs = json.loads(sub_json)
-                    for s in subs:
-                        s['done'] = False
-                        s['done_by'] = None
-                        s['done_at'] = None
-                    sub_json_new = json.dumps(subs)
+                    cur.execute(
+                        "INSERT INTO tasks (description, status, assigned_to, priority, due_date, completed_at, company_id, recurrence, recurrence_day, sector_id) VALUES (%s, %s, %s, %s, %s, %s, %s, 'none', None, %s) RETURNING id",
+                        (t['description'], 'todo', t['assigned_to'], t['priority'], target_date, None, t['company_id'], t['sector_id'])
+                    )
+                    new_tid = cur.fetchone()[0]
+
+                    # Insert Subtasks
+                    for txt in master_subs:
+                        cur.execute("INSERT INTO task_subtasks (task_id, text, done) VALUES (%s, %s, FALSE)", (new_tid, txt))
 
                     # Fetch original assignees
                     cur.execute("SELECT user_id FROM task_assignees WHERE task_id = %s", (t['id'],))
                     orig_assignees = [r[0] for r in cur.fetchall()]
-
-                    cur.execute(
-                        "INSERT INTO tasks (description, status, assigned_to, priority, due_date, completed_at, company_id, subtasks, recurrence, recurrence_day, sector_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
-                        (t['description'], 'todo', t['assigned_to'], t['priority'], target_date, None, t['company_id'], sub_json_new, 'none', None, t['sector_id'])
-                    )
-                    new_tid = cur.fetchone()[0]
 
                     # Copy assignees
                     for uid in orig_assignees:
@@ -294,7 +330,6 @@ def update_task(id: int, background_tasks: BackgroundTasks, t: dict = Body(...))
         updates = []
         params = []
 
-        # Check old assignment for notification logic
         cur.execute("SELECT assigned_to, description FROM tasks WHERE id=%s", (id,))
         row = cur.fetchone()
         old_assign = row[0] if row else None
@@ -304,8 +339,26 @@ def update_task(id: int, background_tasks: BackgroundTasks, t: dict = Body(...))
             updates.append("status=%s"); params.append(t['status'])
         if 'completedAt' in t:
             updates.append("completed_at=%s"); params.append(t['completedAt'])
+
+        # Subtasks handling: SYNC Strategy (Delete All & Insert New)
         if 'subtasks' in t:
-            updates.append("subtasks=%s"); params.append(json.dumps(t['subtasks']))
+            # We don't update tasks table column 'subtasks' anymore
+            # 1. Delete existing
+            cur.execute("DELETE FROM task_subtasks WHERE task_id = %s", (id,))
+            # 2. Insert new
+            new_subs = t['subtasks']
+            if isinstance(new_subs, str): new_subs = json.loads(new_subs)
+
+            for s in new_subs:
+                # Handle possible dict or object structure
+                txt = s.get('text', '')
+                done = s.get('done', False)
+                done_by = s.get('done_by')
+                done_at = s.get('done_at')
+
+                cur.execute("INSERT INTO task_subtasks (task_id, text, done, done_by, done_at) VALUES (%s, %s, %s, %s, %s)",
+                            (id, txt, done, done_by, done_at))
+
         if 'assignedTo' in t:
             updates.append("assigned_to=%s"); val = t['assignedTo']; params.append(int(val) if val else None)
         if 'dueDate' in t:
@@ -341,37 +394,28 @@ def add_comment(id: int, background_tasks: BackgroundTasks, payload: dict = Body
     try:
         cur = conn.cursor()
 
-        # Get current comments and assignee
-        cur.execute("SELECT comments, assigned_to, description FROM tasks WHERE id=%s", (id,))
+        # Get assignee for notification
+        cur.execute("SELECT assigned_to, description FROM tasks WHERE id=%s", (id,))
         row = cur.fetchone()
         if not row: return {"error": "Not found"}
 
-        current_comments = row[0]
-        assignee = row[1]
-        desc = row[2]
+        assignee = row[0]
+        desc = row[1]
 
-        if current_comments is None: current_comments = []
-        elif isinstance(current_comments, str): current_comments = json.loads(current_comments)
-
-        new_comment = {
-            "text": payload['text'],
-            "author_id": payload['authorId'],
-            "created_at": datetime.now().isoformat()
-        }
-        current_comments.append(new_comment)
-
-        cur.execute("UPDATE tasks SET comments=%s WHERE id=%s", (json.dumps(current_comments), id))
+        # INSERT into normalized table
+        created_at = datetime.now().isoformat()
+        cur.execute("INSERT INTO task_comments (task_id, text, author_id, created_at) VALUES (%s, %s, %s, %s)",
+                    (id, payload['text'], payload['authorId'], created_at))
 
         # Notify assignee if author is different
         if assignee and assignee != payload['authorId']:
             msg = f"Novo comentário em: {desc}"
-            now = datetime.now().isoformat()
-            cur.execute("INSERT INTO notifications (user_id, text, created_at, task_id) VALUES (%s, %s, %s, %s)", (assignee, msg, now, id))
+            cur.execute("INSERT INTO notifications (user_id, text, created_at, task_id) VALUES (%s, %s, %s, %s)", (assignee, msg, created_at, id))
             background_tasks.add_task(manager.broadcast, f"notification:{assignee}")
 
         conn.commit()
 
-        background_tasks.add_task(manager.broadcast, "update") # To refresh chat UI for others
+        background_tasks.add_task(manager.broadcast, "update")
         return {"success": True}
     finally:
         conn.close()
