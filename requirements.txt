@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pg8000
+bcrypt
+pydantic
+python-dotenv
+requests
+python-multipart
+websockets
+sqlalchemy
