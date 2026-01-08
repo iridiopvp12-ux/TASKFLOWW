@@ -222,6 +222,15 @@ button.btn-danger-outline { background:transparent; color:var(--danger); border:
     .btn-icon-action { flex: 1; }
 }
 
+/* CHAT FIX */
+#chat-component {
+    height: 100%;
+    display: block;
+    position: relative;
+    /* Evitar colapso em containers flex */
+    min-height: 0;
+}
+
 /* PRINT STYLES (RELATÓRIO) */
 @media print {
     body, #view-dash { background: white; color: black; height: auto; overflow: visible; display: block; }

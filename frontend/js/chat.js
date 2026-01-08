@@ -93,23 +93,30 @@ async function loadRooms() {
 }
 
 async function handleFetchMessages(event) {
-    const { room, options } = event.detail[0];
+    // Documentação: event.detail é o objeto { room, options }
+    const { room, options } = event.detail[0] || event.detail;
 
     // Mostra loading
     chatComponent.messagesLoaded = false;
 
-    // Busca mensagens do backend
-    const msgs = await fetchAPI(`/chat/messages?roomId=${room.roomId}&currentUserId=${currentUser.id}`);
+    try {
+        // Garantir roomId como string
+        const roomIdStr = String(room.roomId);
 
-    if (msgs) {
-        chatComponent.messages = JSON.stringify(msgs);
+        // Busca mensagens do backend
+        const msgs = await fetchAPI(`/chat/messages?roomId=${roomIdStr}&currentUserId=${currentUser.id}`);
+
+        if (msgs) {
+            chatComponent.messages = JSON.stringify(msgs);
+        }
+    } finally {
+        // Sempre marcar como loaded para matar o spinner, sem timeout
+        chatComponent.messagesLoaded = true;
     }
-    // Sempre marcar como loaded para matar o spinner
-    setTimeout(() => { chatComponent.messagesLoaded = true; }, 10);
 }
 
 async function handleSendMessage(event) {
-    const { roomId, content, files, replyMessage } = event.detail[0];
+    const { roomId, content, files, replyMessage } = event.detail[0] || event.detail;
 
     // Se houver arquivos (blobs), precisamos fazer upload primeiro
     let uploadedFiles = [];
@@ -176,7 +183,7 @@ async function handleSendMessage(event) {
 }
 
 async function handleEditMessage(event) {
-    const { messageId, newContent, roomId } = event.detail[0];
+    const { messageId, newContent, roomId } = event.detail[0] || event.detail;
     await fetchAPI(`/chat/message/${messageId}`, 'PUT', {
         action: 'edit',
         content: newContent
@@ -185,7 +192,7 @@ async function handleEditMessage(event) {
 }
 
 async function handleDeleteMessage(event) {
-    const { message, roomId } = event.detail[0];
+    const { message, roomId } = event.detail[0] || event.detail;
     await fetchAPI(`/chat/message/${message._id}`, 'PUT', {
         action: 'delete'
     });
@@ -193,7 +200,7 @@ async function handleDeleteMessage(event) {
 }
 
 async function handleReaction(event) {
-    const { messageId, reaction, remove, roomId } = event.detail[0];
+    const { messageId, reaction, remove, roomId } = event.detail[0] || event.detail;
     await fetchAPI(`/chat/message/${messageId}`, 'PUT', {
         action: 'react',
         reaction: reaction.unicode,
