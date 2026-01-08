@@ -11,6 +11,7 @@ const API_URL = `${protocol}//${host}${portStr}`;
 let USERS = [];
 let COMPANIES = [];
 let TASKS = [];
+let SECTORS = [];
 let currentUser = null;
 
 let pendingLoginUserId = null;

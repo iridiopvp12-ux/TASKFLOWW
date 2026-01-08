@@ -9,9 +9,13 @@ def get_users():
     conn = get_db()
     try:
         cur = conn.cursor()
-        # ✅ Consulta com aspas duplas para o nome exato da coluna
-        cur.execute('SELECT id, name, role, "role_desc" as "roleDesc", initials, color FROM users ORDER BY id ASC')
-
+        # Join with sectors to get sector name
+        cur.execute("""
+            SELECT u.id, u.name, u.role, u."role_desc" as "roleDesc", u.initials, u.color, u.sector_id, s.name as "sectorName"
+            FROM users u
+            LEFT JOIN sectors s ON u.sector_id = s.id
+            ORDER BY u.id ASC
+        """)
         res = row_to_dict(cur)
         return res
     finally:
@@ -23,8 +27,8 @@ def create_user(u: UserCreate):
     try:
         cur = conn.cursor()
         h = hash_pass(u.password)
-        cur.execute("INSERT INTO users (name, role, \"role_desc\", initials, color, password_hash) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
-                    (u.name, u.role, u.roleDesc, u.initials, u.color, h))
+        cur.execute("INSERT INTO users (name, role, \"role_desc\", initials, color, password_hash, sector_id) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                    (u.name, u.role, u.roleDesc, u.initials, u.color, h, u.sectorId))
         uid = cur.fetchone()[0]
         conn.commit()
         return {"id": uid}

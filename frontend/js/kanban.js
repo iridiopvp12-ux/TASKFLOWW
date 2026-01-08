@@ -13,11 +13,33 @@ function renderBoard() {
         });
     }
 
+    const fVal = document.getElementById('filter-user-select').value;
+
+    // VISIBILITY LOGIC
+    // Admin sees everything by default, unless filtered.
+    // User sees only their tasks OR their sector tasks.
+
     if (currentUser.role === 'user') {
-        filtered = filtered.filter(t => t.assignedTo == currentUser.id || !t.assignedTo);
-    } else {
-        const fVal = document.getElementById('filter-user-select').value;
-        if (fVal !== 'all') filtered = filtered.filter(t => t.assignedTo == fVal);
+        filtered = filtered.filter(t => {
+            // Check if assigned (legacy or multi)
+            const isAssigned = (t.assignedTo === currentUser.id) || (t.assigneeIds && t.assigneeIds.includes(currentUser.id));
+            // Check sector
+            const isSector = (t.sectorId && currentUser.sector_id && t.sectorId === currentUser.sector_id);
+            // Public/Open tasks? "LIVRE" if assignedTo is null AND sectorId is null? Maybe.
+            // Requirement says: "Task appears for everyone in the sector".
+            return isAssigned || isSector;
+        });
+    }
+
+    // FILTER LOGIC (Dropdown)
+    if (fVal !== 'all') {
+        if (fVal.startsWith('SEC:')) {
+            const secId = parseInt(fVal.split(':')[1]);
+            filtered = filtered.filter(t => t.sectorId === secId);
+        } else {
+            const uid = parseInt(fVal);
+            filtered = filtered.filter(t => t.assignedTo == uid || (t.assigneeIds && t.assigneeIds.includes(uid)));
+        }
     }
 
     document.getElementById('count-todo').innerText = filtered.filter(t => t.status === 'todo').length;
@@ -28,9 +50,38 @@ function renderBoard() {
 }
 
 function createCard(task) {
-    let u = USERS.find(x => x.id == task.assignedTo);
-    if (!u && !task.assignedTo) u = { name: 'LIVRE', color: '#94a3b8', initials: '?' };
-    else if (!u) u = { name: 'Desconhecido', color: '#64748b', initials: '?' };
+    // Determine visual owner (Legacy or First of Multi or Sector)
+    let u = null;
+
+    // Priority: Sector Badge? Or User Badge?
+    // If sector task, maybe show Sector Name?
+    // User requested "Task appears for everyone in the sector".
+
+    if (task.sectorId) {
+        const s = SECTORS.find(x => x.id === task.sectorId);
+        if (s) {
+            u = { name: `Setor: ${s.name}`, color: '#6366f1', initials: 'SEC' };
+        }
+    }
+
+    if (!u) {
+        // Try user
+        let uid = task.assignedTo;
+        if (!uid && task.assigneeIds && task.assigneeIds.length > 0) uid = task.assigneeIds[0];
+
+        if (uid) {
+            const found = USERS.find(x => x.id == uid);
+            if (found) {
+                 u = found;
+                 if (task.assigneeIds && task.assigneeIds.length > 1) {
+                     u = { ...found, name: `${found.name} +${task.assigneeIds.length-1}` }; // Visual indicator of multiple
+                 }
+            }
+        }
+    }
+
+    if (!u) u = { name: 'LIVRE', color: '#94a3b8', initials: '?' };
+
     const c = COMPANIES.find(x => x.id == task.companyId);
     const done = task.subtasks.filter(s => s.done).length;
     const total = task.subtasks.length;

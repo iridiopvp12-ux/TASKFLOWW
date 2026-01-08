@@ -31,23 +31,48 @@ function renderDashboard() {
     //   Mas "Concluídas" deve respeitar o filtro de data (Produtividade do mês).
     // Vamos filtrar APENAS para os gráficos e contagem de concluídas. O resto mostra snapshot atual.
 
-    // Filtro para Concluídas no período
-    const filteredDone = TASKS.filter(t =>
+    // --- FILTER BY SECTOR / ASSIGNEE ---
+    // Reuse logic from Kanban filter
+    const fVal = document.getElementById('filter-user-select').value;
+    let viewTasks = TASKS;
+
+    // 1. VISIBILITY (Scope)
+    if (currentUser.role === 'user') {
+        viewTasks = viewTasks.filter(t => {
+            const isAssigned = (t.assignedTo === currentUser.id) || (t.assigneeIds && t.assigneeIds.includes(currentUser.id));
+            const isSector = (t.sectorId && currentUser.sector_id && t.sectorId === currentUser.sector_id);
+            return isAssigned || isSector;
+        });
+    }
+
+    // 2. USER DROPDOWN FILTER
+    if (fVal && fVal !== 'all') {
+        if (fVal.startsWith('SEC:')) {
+            const secId = parseInt(fVal.split(':')[1]);
+            viewTasks = viewTasks.filter(t => t.sectorId === secId);
+        } else {
+            const uid = parseInt(fVal);
+            viewTasks = viewTasks.filter(t => t.assignedTo == uid || (t.assigneeIds && t.assigneeIds.includes(uid)));
+        }
+    }
+
+    // Filtro para Concluídas no período (Within View Scope)
+    const filteredDone = viewTasks.filter(t =>
         ['done', 'archived'].includes(t.status) &&
         t.completedAt >= startDate &&
         t.completedAt <= endDate
     );
 
     // 1. Atualiza Cartões (KPIs)
-    document.getElementById('dash-total').innerText = TASKS.length; // Total Geral
+    document.getElementById('dash-total').innerText = viewTasks.length; // Total Geral (Scope)
     document.getElementById('dash-done').innerText = filteredDone.length; // Concluídas no Período
-    document.getElementById('dash-todo').innerText = TASKS.filter(t=>t.status==='todo').length; // Atual
-    document.getElementById('dash-doing').innerText = TASKS.filter(t=>t.status==='doing').length; // Atual
+    document.getElementById('dash-todo').innerText = viewTasks.filter(t=>t.status==='todo').length; // Atual
+    document.getElementById('dash-doing').innerText = viewTasks.filter(t=>t.status==='doing').length; // Atual
 
     // 2. Lista de Urgentes (Alta Prioridade ou Atrasadas) - Snapshot Atual
     const uList = document.getElementById('urgent-task-list');
     uList.innerHTML = '';
-    const urgentTasks = TASKS.filter(t => t.status !== 'done' && t.status !== 'archived' && (t.prio === 'Alta' || t.dueDate < new Date().toISOString().split('T')[0]));
+    const urgentTasks = viewTasks.filter(t => t.status !== 'done' && t.status !== 'archived' && (t.prio === 'Alta' || t.dueDate < new Date().toISOString().split('T')[0]));
 
     // Na TV, mostramos mais itens se couber (scroll oculto)
     urgentTasks.forEach(t => {
@@ -201,7 +226,10 @@ function renderCharts(startDate, endDate, filteredDone) {
     const ctxCompanies = document.getElementById('chart-companies-canvas').getContext('2d');
 
     const compCounts = {};
-    TASKS.forEach(t => {
+    // Use viewTasks or TASKS? viewTasks is better for consistency with filters
+    // However, the original code used TASKS (all). But since we filter visuals now, we should filter charts too.
+    // Let's use viewTasks (which is filtered by scope/dropdown)
+    viewTasks.forEach(t => {
         if (!t.companyId) return;
         compCounts[t.companyId] = (compCounts[t.companyId] || 0) + 1;
     });

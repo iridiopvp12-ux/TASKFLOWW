@@ -3,16 +3,76 @@
 // --- CRIAÇÃO DE TAREFAS ---
 function openCreateModal(){ 
     loadTemplatesForCompany(); 
-    document.getElementById('input-assignee').value = currentUser.id; 
+    // Init dates and desc
     document.getElementById('input-date').value = new Date().toISOString().split('T')[0]; 
-    
     document.getElementById('input-desc').value = '';
     document.getElementById('create-company-select').value = '';
     document.getElementById('create-template-select').innerHTML = '<option value="">-- Manual --</option>';
 
+    // Render Assignees/Sector Logic
+    renderAssigneeSelector();
+
     const m=document.getElementById('modal-create'); 
     m.style.display='flex'; 
     setTimeout(()=>m.classList.add('open'),10); 
+}
+
+function renderAssigneeSelector() {
+    const container = document.getElementById('input-assignee-container');
+    if(!container) return;
+
+    container.innerHTML = '';
+
+    // 1. SECTORS (Radio behavior? Or just one select?)
+    if (SECTORS.length > 0) {
+        const secTitle = document.createElement('div');
+        secTitle.innerText = "Setor (Atribuir a todos):";
+        secTitle.style.fontSize = "0.8rem";
+        secTitle.style.color = "var(--primary)";
+        secTitle.style.marginBottom = "5px";
+        container.appendChild(secTitle);
+
+        const secSelect = document.createElement('select');
+        secSelect.id = "input-sector-select";
+        secSelect.className = "form-input";
+        secSelect.style.marginBottom = "15px";
+        secSelect.innerHTML = '<option value="">-- Nenhum --</option>';
+        SECTORS.forEach(s => {
+            secSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+        });
+        container.appendChild(secSelect);
+    }
+
+    // 2. USERS (Checkboxes)
+    const userTitle = document.createElement('div');
+    userTitle.innerText = "Usuários Específicos:";
+    userTitle.style.fontSize = "0.8rem";
+    userTitle.style.color = "var(--primary)";
+    userTitle.style.marginBottom = "5px";
+    container.appendChild(userTitle);
+
+    const userGrid = document.createElement('div');
+    userGrid.style.display = 'grid';
+    userGrid.style.gridTemplateColumns = '1fr 1fr';
+    userGrid.style.gap = '8px';
+
+    USERS.forEach(u => {
+        const div = document.createElement('div');
+        div.style.display = 'flex';
+        div.style.alignItems = 'center';
+        div.style.gap = '5px';
+
+        // Auto-check current user
+        const isChecked = (u.id === currentUser.id) ? 'checked' : '';
+
+        div.innerHTML = `
+            <input type="checkbox" class="assignee-checkbox" value="${u.id}" ${isChecked}>
+            <span style="font-size:0.85rem;">${u.name.split(' ')[0]}</span>
+        `;
+        userGrid.appendChild(div);
+    });
+
+    container.appendChild(userGrid);
 }
 
 function loadTemplatesForCompany() { 
@@ -64,8 +124,22 @@ async function saveTask() {
         }
     }
 
+    // Collect Sector
+    let sectorId = null;
+    const secSel = document.getElementById('input-sector-select');
+    if (secSel && secSel.value) sectorId = parseInt(secSel.value);
+
+    // Collect Assignees
+    const assigneeIds = [];
+    document.querySelectorAll('.assignee-checkbox:checked').forEach(cb => {
+        assigneeIds.push(parseInt(cb.value));
+    });
+
     const newTask = {
-        desc, dueDate: date, assignedTo: parseInt(document.getElementById('input-assignee').value),
+        desc, dueDate: date,
+        // assignedTo legacy is derived in backend from first assigneeId
+        assigneeIds: assigneeIds,
+        sectorId: sectorId,
         prio: document.getElementById('input-prio').value,
         companyId: compId, subtasks,
         status: "todo", completedAt: null,

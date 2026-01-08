@@ -282,7 +282,13 @@
                             <span class="section-title">👥 Gestão de Equipe</span>
                             <button class="btn-primary" onclick="openUserModal()">+ Novo Usuário</button>
                         </div>
-                        <div id="user-list-settings" class="data-list"></div>
+                        <div id="user-list-settings" class="data-list" style="margin-bottom: 30px;"></div>
+
+                        <div class="section-header">
+                            <span class="section-title">🏢 Gestão de Setores</span>
+                            <button class="btn-primary" onclick="openSectorModal()">+ Novo Setor</button>
+                        </div>
+                        <div id="sector-list-settings" class="data-list"></div>
                     </div>
                 </div>
             </div>
@@ -301,7 +307,12 @@
                 </div>
                 <div class="form-group"><label>Título</label><input type="text" id="input-desc" class="form-input"></div>
                 <div class="form-group"><label>Prazo</label><input type="date" id="input-date" class="form-input"></div>
-                <div class="form-group"><label>Responsável</label><select id="input-assignee" class="form-input"></select></div>
+                <div class="form-group">
+                    <label>Responsáveis / Setor</label>
+                    <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; max-height: 150px; overflow-y: auto;" id="input-assignee-container">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
                 <div class="form-group"><label>Prioridade</label><select id="input-prio" class="form-input"><option value="Alta">Alta</option><option value="Média" selected>Média</option><option value="Baixa">Baixa</option></select></div>
 
                 <div class="form-group">
@@ -490,11 +501,23 @@
             <div class="modal-body">
                 <div class="form-group"><label>Nome Completo</label><input type="text" id="user-name" class="form-input"></div>
                 <div class="form-group"><label>Cargo</label><input type="text" id="user-role-desc" class="form-input"></div>
+                <div class="form-group"><label>Setor</label><select id="user-sector" class="form-input"><option value="">-- Nenhum --</option></select></div>
                 <div class="form-group"><label>Iniciais</label><input type="text" id="user-initials" class="form-input" maxlength="2"></div>
                 <div class="form-group"><label>Senha</label><input type="password" id="user-pass-new" class="form-input"></div>
                 <div class="form-group"><label>Permissão</label><select id="user-perm" class="form-input"><option value="user">Equipe</option><option value="admin">Admin</option></select></div>
             </div>
             <div class="modal-footer"><button class="btn-save" onclick="saveUser()">Cadastrar</button></div>
+        </div>
+    </div>
+
+    <!-- Modal Setor -->
+    <div class="modal-overlay" id="modal-sector">
+        <div class="modal" style="width:400px;">
+            <div class="modal-header"><h2>Novo Setor</h2><button class="btn-close" onclick="closeModal('modal-sector')">×</button></div>
+            <div class="modal-body">
+                <div class="form-group"><label>Nome do Setor</label><input type="text" id="sector-name" class="form-input"></div>
+            </div>
+            <div class="modal-footer"><button class="btn-save" onclick="saveSector()">Salvar</button></div>
         </div>
     </div>
 

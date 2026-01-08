@@ -14,6 +14,7 @@ import backend.routers.companies as companies
 import backend.routers.tasks as tasks
 import backend.routers.notifications as notifications
 import backend.routers.chat as chat
+import backend.routers.sectors as sectors
 
 app = FastAPI()
 
@@ -38,6 +39,7 @@ app.include_router(companies.router)
 app.include_router(tasks.router)
 app.include_router(notifications.router)
 app.include_router(chat.router)
+app.include_router(sectors.router)
 
 # 3.1 Rota WebSocket (Realtime)
 @app.websocket("/ws")

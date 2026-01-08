@@ -154,6 +154,32 @@ def init_db():
             UNIQUE(room_id, user_id)
         )""")
 
+        # --- NOVAS TABELAS PARA SETORES (MIGRAÇÃO) ---
+        cur.execute("""CREATE TABLE IF NOT EXISTS sectors (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL
+        )""")
+
+        cur.execute("""CREATE TABLE IF NOT EXISTS task_assignees (
+            task_id INTEGER,
+            user_id INTEGER,
+            PRIMARY KEY (task_id, user_id)
+        )""")
+
+        # Adiciona coluna sector_id em users
+        try:
+            cur.execute("ALTER TABLE users ADD COLUMN sector_id INTEGER")
+            conn.commit()
+            print(">>> Coluna 'sector_id' adicionada em 'users'.")
+        except Exception: conn.rollback()
+
+        # Adiciona coluna sector_id em tasks
+        try:
+            cur.execute("ALTER TABLE tasks ADD COLUMN sector_id INTEGER")
+            conn.commit()
+            print(">>> Coluna 'sector_id' adicionada em 'tasks'.")
+        except Exception: conn.rollback()
+
         conn.commit()
 
         # Cria admin se não existir
