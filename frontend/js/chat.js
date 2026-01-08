@@ -210,26 +210,13 @@ async function handleReaction(event) {
 }
 
 async function handleAddRoom(event) {
-    // detail[0] = { roomId, roomName, users: [id, id], ... }
-    // mas o evento add-room do componente geralmente abre um modal interno ou esperamos que a gente abra?
-    // O componente vue-advanced-chat emite 'add-room' quando clica no botão '+'.
-    // Precisamos abrir nosso modal ou usar prompt simples.
-    // O componente não tem modal de seleção de usuarios embutido para criar sala, nós que temos que implementar a UI de seleção.
-    // Vamos fazer um prompt simples por enquanto ou usar o modal de usuario existente adaptado?
-    // Prompt simples de nome + seleção automatica (todos?) não faz sentido.
-    // Vamos assumir que o usuário quer criar grupo.
+    console.log("Add Room Clicked", event);
 
     const roomName = prompt("Nome do Grupo:");
     if (!roomName) return;
 
-    // Simplificação: Criar grupo vazio e depois adicionar (ou selecionar usuarios agora).
-    // Como não temos UI de multiselect pronta no prompt, vamos pegar todos os users exceto eu para teste, ou melhor:
-    // Mostrar prompt de IDs? Não.
-    // Vamos criar o grupo só com o criador por enquanto, e a interface permite adicionar depois?
-    // O componente não tem menu "add member" nativo fácil de hookar sem UI custom.
-    // Vamos criar um grupo com TODOS os usuários para facilitar o teste do cliente, ou listar IDs.
-
-    // Melhor: Criar grupo vazio.
+    // Criar grupo com o usuário atual
+    // TODO: Adicionar modal para selecionar múltiplos usuários
     const res = await fetchAPI('/chat/room', 'POST', { roomName: roomName, users: [currentUser.id] });
     if(res) {
         loadRooms(); // Refresh list
