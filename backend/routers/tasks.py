@@ -26,6 +26,7 @@ def get_tasks():
                 t.priority as prio, t.due_date as "dueDate", t.completed_at as "completedAt",
                 t.company_id as "companyId", t.subtasks, t.comments,
                 t.recurrence, t.recurrence_day as "recurrenceDay",
+                t.recurrence_active as "recurrenceActive",
                 t.sector_id as "sectorId",
                 c.name as "companyName", u.name as "userName",
                 s.name as "sectorName",
@@ -149,8 +150,8 @@ def create_task(t: TaskCreate, background_tasks: BackgroundTasks):
         if t.assignedTo: assign = int(t.assignedTo)
         elif t.assigneeIds and len(t.assigneeIds) > 0: assign = int(t.assigneeIds[0]) # Default to first if not specified
 
-        cur.execute("INSERT INTO tasks (description, status, assigned_to, priority, due_date, completed_at, company_id, subtasks, recurrence, recurrence_day, sector_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
-                    (t.desc, t.status, assign, t.prio, t.dueDate, t.completedAt, comp, sub_json, t.recurrence, t.recurrenceDay, t.sectorId))
+        cur.execute("INSERT INTO tasks (description, status, assigned_to, priority, due_date, completed_at, company_id, subtasks, recurrence, recurrence_day, sector_id, recurrence_active) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                    (t.desc, t.status, assign, t.prio, t.dueDate, t.completedAt, comp, sub_json, t.recurrence, t.recurrenceDay, t.sectorId, t.recurrenceActive))
 
         tid = cur.fetchone()[0]
 
@@ -195,7 +196,8 @@ def process_recurrence(background_tasks: BackgroundTasks):
     try:
         cur = conn.cursor()
 
-        cur.execute("SELECT * FROM tasks WHERE recurrence IN ('daily', 'weekly', 'monthly', 'fortnightly')")
+        # Added filtering for active recurrence
+        cur.execute("SELECT * FROM tasks WHERE recurrence IN ('daily', 'weekly', 'monthly', 'fortnightly') AND recurrence_active = TRUE")
         masters = row_to_dict(cur)
 
         created_count = 0
@@ -384,6 +386,55 @@ def del_task(id: int, background_tasks: BackgroundTasks):
         # Notifica clientes
         background_tasks.add_task(manager.broadcast, "update")
         return {"success": True}
+    finally:
+        conn.close()
+
+@router.get("/recurrent-tasks")
+def get_recurrent_tasks():
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        query = """
+            SELECT
+                t.id, t.description as "desc", t.status, t.assigned_to as "assignedTo",
+                t.recurrence, t.recurrence_day as "recurrenceDay", t.recurrence_active as "recurrenceActive",
+                t.sector_id as "sectorId",
+                c.name as "companyName", u.name as "userName",
+                s.name as "sectorName"
+            FROM tasks t
+            LEFT JOIN companies c ON t.company_id = c.id
+            LEFT JOIN users u ON t.assigned_to = u.id
+            LEFT JOIN sectors s ON t.sector_id = s.id
+            WHERE t.recurrence IS NOT NULL AND t.recurrence != 'none'
+            ORDER BY t.id DESC
+        """
+        cur.execute(query)
+        res = row_to_dict(cur)
+        return res
+    finally:
+        conn.close()
+
+@router.put("/tasks/{id}/toggle-recurrence")
+def toggle_recurrence(id: int, background_tasks: BackgroundTasks):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT recurrence_active FROM tasks WHERE id=%s", (id,))
+        row = cur.fetchone()
+        if not row: return {"error": "Not found"}
+
+        # Toggle boolean (handle None as True default, but better explicitly)
+        current = row[0]
+        if current is None: current = True
+        new_val = not current
+
+        cur.execute("UPDATE tasks SET recurrence_active=%s WHERE id=%s", (new_val, id))
+        conn.commit()
+
+        # Opcional: Notificar update
+        background_tasks.add_task(manager.broadcast, "update")
+
+        return {"id": id, "recurrenceActive": new_val}
     finally:
         conn.close()
 

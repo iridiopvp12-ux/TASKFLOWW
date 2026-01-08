@@ -101,6 +101,7 @@ function switchView(v) {
     if (v === 'dash') renderDashboard();
     if (v === 'board') renderBoard(); // Force update
     if (v === 'chat') initChat(); // Init Chat
+    if (v === 'recurrence') loadRecurrentTasks(); // Load Recurrence
     if (v === 'calendar' && typeof renderCalendar === 'function') renderCalendar();
 
     if (v === 'settings') {
