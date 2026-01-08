@@ -1,18 +1,29 @@
 
-async function loadRecurrentTasks() {
-    const search = document.getElementById('recurrence-search').value.toLowerCase();
-    const list = document.getElementById('recurrence-list');
-    list.innerHTML = '<div style="padding:20px; text-align:center;">Carregando...</div>';
+let RECURRENT_TASKS = [];
 
-    const tasks = await fetchAPI('/recurrent-tasks');
-    if (!tasks) {
-        list.innerHTML = '<div style="padding:20px; text-align:center; color:var(--danger);">Erro ao carregar tarefas.</div>';
-        return;
+async function loadRecurrentTasks(forceReload = false) {
+    const list = document.getElementById('recurrence-list');
+
+    // Only fetch if empty or forced
+    if (RECURRENT_TASKS.length === 0 || forceReload) {
+        list.innerHTML = '<div style="padding:20px; text-align:center;">Carregando...</div>';
+        const tasks = await fetchAPI('/recurrent-tasks');
+        if (!tasks) {
+            list.innerHTML = '<div style="padding:20px; text-align:center; color:var(--danger);">Erro ao carregar tarefas.</div>';
+            return;
+        }
+        RECURRENT_TASKS = tasks;
     }
 
+    renderRecurrentList();
+}
+
+function renderRecurrentList() {
+    const search = document.getElementById('recurrence-search').value.toLowerCase();
+    const list = document.getElementById('recurrence-list');
     list.innerHTML = '';
 
-    const filtered = tasks.filter(t => t.desc.toLowerCase().includes(search));
+    const filtered = RECURRENT_TASKS.filter(t => t.desc.toLowerCase().includes(search));
 
     if (filtered.length === 0) {
         list.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted);">Nenhuma tarefa recorrente encontrada.</div>';
@@ -78,7 +89,7 @@ async function toggleRecurrence(id) {
         const res = await fetchAPI(`/tasks/${id}/toggle-recurrence`, 'PUT', {});
         if (res) {
             showToast(res.recurrenceActive ? "Recorrência ativada!" : "Recorrência pausada!", "success");
-            loadRecurrentTasks(); // Reload to refresh list
+            loadRecurrentTasks(true); // Force reload to update state
         }
     } finally {
         btn.disabled = false;
@@ -90,5 +101,5 @@ async function deleteRecurrentTask(id) {
 
     await fetchAPI(`/tasks/${id}`, 'DELETE');
     showToast("Tarefa recorrente removida.", "success");
-    loadRecurrentTasks();
+    loadRecurrentTasks(true);
 }
