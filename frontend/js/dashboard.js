@@ -75,7 +75,24 @@ function renderCharts(startDate, endDate, filteredDone) {
     Chart.defaults.color = '#94a3b8';
     Chart.defaults.borderColor = '#334155';
     Chart.defaults.font.family = "'Inter', sans-serif";
-    Chart.defaults.font.size = 14; // Bigger font for TV
+    Chart.defaults.font.size = 14;
+
+    // Register the datalabels plugin if using Chart.js < 3 global registration or ensure it's available
+    // Since we included the CDN, we should register it if it's not automatic.
+    // Usually CDN registers it to Chart.registry or Chart.plugins.
+    if (Chart.register && window.ChartDataLabels) {
+        Chart.register(window.ChartDataLabels);
+    }
+
+    const commonDatalabels = {
+        display: true,
+        color: 'white',
+        align: 'end',
+        anchor: 'end',
+        font: { weight: 'bold', size: 12 },
+        offset: 0,
+        padding: 4
+    };
 
     // --- GRÁFICO 1: PRODUTIVIDADE (DIÁRIA NO PERÍODO) ---
     const ctxWeekly = document.getElementById('chart-weekly-canvas').getContext('2d');
@@ -85,10 +102,6 @@ function renderCharts(startDate, endDate, filteredDone) {
     // Gera labels de dias entre start e end
     let curr = new Date(startDate);
     const end = new Date(endDate);
-
-    // Se o intervalo for muito grande (> 31 dias), agrupar por MÊS? Por enquanto dia a dia.
-    // Limite visual: se > 14 dias, mostra só os dias com dados ou simplifica?
-    // Vamos iterar dia a dia.
 
     while (curr <= end) {
         const dateStr = curr.toISOString().split('T')[0];
@@ -119,8 +132,17 @@ function renderCharts(startDate, endDate, filteredDone) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false, // Critical for CSS Grid
-            plugins: { legend: { display: false } },
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    ...commonDatalabels,
+                    align: 'top',
+                    display: function(context) {
+                        return context.dataset.data[context.dataIndex] > 0; // Hide 0s
+                    }
+                }
+            },
             scales: {
                 y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 12 } } },
                 x: { ticks: { font: { size: 12 } } }
@@ -136,7 +158,6 @@ function renderCharts(startDate, endDate, filteredDone) {
 
     USERS.forEach(u => {
         labelsUsers.push(u.name.split(' ')[0]);
-        // Usa filteredDone que já respeita a data
         const c = filteredDone.filter(t => t.assignedTo == u.id).length;
         dataUsers.push(c);
         colorsUsers.push(u.color || '#64748b');
@@ -158,7 +179,17 @@ function renderCharts(startDate, endDate, filteredDone) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    ...commonDatalabels,
+                    anchor: 'end',
+                    align: 'top',
+                    display: function(context) {
+                        return context.dataset.data[context.dataIndex] > 0;
+                    }
+                }
+            },
             scales: {
                 y: { beginAtZero: true, ticks: { stepSize: 1 } },
                 x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 0 } }
@@ -210,6 +241,13 @@ function renderCharts(startDate, endDate, filteredDone) {
                 legend: {
                     position: 'bottom',
                     labels: { boxWidth: 12, font: { size: 11 }, padding: 15 }
+                },
+                datalabels: {
+                    color: 'white',
+                    font: { weight: 'bold', size: 12 },
+                    formatter: (value, ctx) => {
+                        return value;
+                    }
                 }
             }
         }
