@@ -400,15 +400,20 @@ def upload_files(files: List[UploadFile] = File(...)):
             is_video = ext in ['mp4', 'webm']
             is_audio = ext in ['mp3', 'wav', 'ogg']
 
-            file_type = ext
+            file_type = 'file'
             if is_image: file_type = 'image'
             if is_video: file_type = 'video'
             if is_audio: file_type = 'audio'
 
+            # Get size if possible, else 0
+            size = os.path.getsize(path)
+
             uploaded.append({
                 "name": file.filename,
-                "size": 0,
+                "size": size,
                 "type": file_type,
+                "audio": is_audio,
+                "duration": 0, # Duration extraction would require another lib
                 "extension": ext,
                 "url": f"/uploads/{filename}",
                 "preview": f"/uploads/{filename}" if is_image else None
