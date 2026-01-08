@@ -1,0 +1,16 @@
+===================================================
+  TASKFLOW - PUBLIC ACCESS SETUP
+===================================================
+
+1. Starting Backend Server...
+   Server running on localhost:8000 (PID: 3164)
+
+2. To put this online, you need NGROK installed.
+   If you have ngrok, open a NEW terminal window and type:
+
+   ngrok http 8000
+
+   Then copy the https://....ngrok-free.app URL and share it.
+   It will automatically detect mobile vs desktop.
+
+Press [ENTER] to stop the server...

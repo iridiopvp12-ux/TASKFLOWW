@@ -93,10 +93,10 @@ function renderDashboard() {
     }
 
     // 3. Renderiza Gráficos Chart.js
-    renderCharts(startDate, endDate, filteredDone);
+    renderCharts(startDate, endDate, filteredDone, viewTasks);
 }
 
-function renderCharts(startDate, endDate, filteredDone) {
+function renderCharts(startDate, endDate, filteredDone, viewTasks) {
     Chart.defaults.color = '#94a3b8';
     Chart.defaults.borderColor = '#334155';
     Chart.defaults.font.family = "'Inter', sans-serif";
