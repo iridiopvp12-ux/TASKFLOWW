@@ -108,6 +108,7 @@ def init_db():
             status TEXT, completed_at TEXT, recurrence TEXT,
             recurrence_day INTEGER, subtasks JSONB DEFAULT '[]'::jsonb
         )""")
+        conn.commit()
 
         # Add comments column if not exists (Legacy support)
         try:
@@ -163,6 +164,7 @@ def init_db():
             attachment TEXT,
             created_at TEXT
         )""")
+        conn.commit()
 
         # 🛡️ MIGRAÇÃO CHAT v2: Adicionar colunas novas se não existirem
         chat_cols = [
