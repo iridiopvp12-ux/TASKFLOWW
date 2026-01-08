@@ -45,6 +45,7 @@ async function loadAppData() {
 }
 
 function renderAll() {
+    updateSelects(); // Call updateSelects first to populate filters
     renderBoard();
     renderDashboard();
     renderCompanies();
@@ -57,7 +58,6 @@ function renderAll() {
     renderSettings();
     renderSectorsList(); // Render Sectors in Settings
 
-    updateSelects();
     // Renderiza o calendário se estiver visível, ou só deixa pronto
     if (typeof renderCalendar === 'function') {
          // Se estiver na aba calendario, renderiza

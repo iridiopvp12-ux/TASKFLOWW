@@ -89,6 +89,9 @@ async function loadRooms() {
     if (rooms) {
         chatComponent.rooms = JSON.stringify(rooms);
         chatComponent.roomsLoaded = true;
+    } else {
+        chatComponent.rooms = '[]';
+        chatComponent.roomsLoaded = true;
     }
 }
 
@@ -108,6 +111,8 @@ async function handleFetchMessages(event) {
 
         if (msgs) {
             chatComponent.messages = JSON.stringify(msgs);
+        } else {
+            chatComponent.messages = '[]';
         }
     } finally {
         // Sempre marcar como loaded para matar o spinner, sem timeout
