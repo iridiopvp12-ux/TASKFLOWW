@@ -138,33 +138,41 @@ def init_db():
                 conn.rollback() # Ignora se já existe
 
         # --- NOVAS TABELAS PARA GRUPOS ---
-        cur.execute("""CREATE TABLE IF NOT EXISTS chat_rooms (
-            id TEXT PRIMARY KEY,
-            name TEXT,
-            avatar TEXT,
-            created_by INTEGER,
-            created_at TEXT
-        )""")
-
-        cur.execute("""CREATE TABLE IF NOT EXISTS chat_room_members (
-            id SERIAL PRIMARY KEY,
-            room_id TEXT,
-            user_id INTEGER,
-            joined_at TEXT,
-            UNIQUE(room_id, user_id)
-        )""")
+        try:
+            cur.execute("""CREATE TABLE IF NOT EXISTS chat_rooms (
+                id TEXT PRIMARY KEY,
+                name TEXT,
+                avatar TEXT,
+                created_by INTEGER,
+                created_at TEXT
+            )""")
+            cur.execute("""CREATE TABLE IF NOT EXISTS chat_room_members (
+                id SERIAL PRIMARY KEY,
+                room_id TEXT,
+                user_id INTEGER,
+                joined_at TEXT,
+                UNIQUE(room_id, user_id)
+            )""")
+            conn.commit()
+        except Exception as e:
+            print(f"⚠️ Erro ao criar tabelas de chat: {e}")
+            conn.rollback()
 
         # --- NOVAS TABELAS PARA SETORES (MIGRAÇÃO) ---
-        cur.execute("""CREATE TABLE IF NOT EXISTS sectors (
-            id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL
-        )""")
-
-        cur.execute("""CREATE TABLE IF NOT EXISTS task_assignees (
-            task_id INTEGER,
-            user_id INTEGER,
-            PRIMARY KEY (task_id, user_id)
-        )""")
+        try:
+            cur.execute("""CREATE TABLE IF NOT EXISTS sectors (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL
+            )""")
+            cur.execute("""CREATE TABLE IF NOT EXISTS task_assignees (
+                task_id INTEGER,
+                user_id INTEGER,
+                PRIMARY KEY (task_id, user_id)
+            )""")
+            conn.commit()
+        except Exception as e:
+            print(f"⚠️ Erro ao criar tabelas de setores: {e}")
+            conn.rollback()
 
         # Adiciona coluna sector_id em users
         try:
@@ -179,8 +187,6 @@ def init_db():
             conn.commit()
             print(">>> Coluna 'sector_id' adicionada em 'tasks'.")
         except Exception: conn.rollback()
-
-        conn.commit()
 
         # Cria admin se não existir
         cur.execute("SELECT * FROM users WHERE role='admin'")

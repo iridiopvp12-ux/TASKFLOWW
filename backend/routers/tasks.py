@@ -29,7 +29,7 @@ def get_tasks():
                 t.sector_id as "sectorId",
                 c.name as "companyName", u.name as "userName",
                 s.name as "sectorName",
-                (SELECT json_agg(user_id) FROM task_assignees WHERE task_id = t.id) as "assigneeIds"
+                COALESCE((SELECT json_agg(user_id) FROM task_assignees WHERE task_id = t.id), '[]'::json) as "assigneeIds"
             FROM tasks t
             LEFT JOIN companies c ON t.company_id = c.id
             LEFT JOIN users u ON t.assigned_to = u.id
