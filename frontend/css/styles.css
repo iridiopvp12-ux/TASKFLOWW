@@ -231,6 +231,16 @@ button.btn-danger-outline { background:transparent; color:var(--danger); border:
     min-height: 0;
 }
 
+/* Ocultar bolinha de carregamento persistente se travar */
+#vac-circle {
+    display: none !important;
+}
+
+/* Ocultar bolinha de carregamento persistente se travar */
+#vac-circle {
+    display: none !important;
+}
+
 /* PRINT STYLES (RELATÓRIO) */
 @media print {
     body, #view-dash { background: white; color: black; height: auto; overflow: visible; display: block; }
