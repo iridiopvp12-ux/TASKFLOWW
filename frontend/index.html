@@ -53,6 +53,7 @@
             <div class="nav-item" id="nav-board" onclick="switchView('board')">📋 Kanban</div>
             <div class="nav-item" id="nav-calendar" onclick="switchView('calendar')">📅 Calendário</div>
             <div class="nav-item" id="nav-audit" onclick="switchView('audit')">🛡️ Auditoria</div>
+            <div class="nav-item" id="nav-recurrence" onclick="switchView('recurrence')">🔁 Recorrência</div>
             <div class="nav-item" id="nav-company" onclick="switchView('company')">🏢 Empresas</div>
             <div class="nav-item" id="nav-settings" onclick="switchView('settings')">⚙️ Configurações</div>
 
@@ -241,6 +242,25 @@
 
                     <div id="audit-list-container" class="data-list" style="gap: 0;"></div>
                     <div id="audit-pagination-controls" style="display: flex; justify-content: center; margin: 30px 0;"></div>
+                </div>
+            </div>
+
+            <div id="view-recurrence" class="view-section">
+                <div class="top-bar">
+                    <div class="page-title"><h2>Tarefas Recorrentes</h2><p>Gerencie as tarefas automáticas.</p></div>
+                    <div class="top-actions">
+                         <input type="text" id="recurrence-search" class="custom-input" style="width:250px" placeholder="🔍 Buscar por descrição..." onkeyup="loadRecurrentTasks()">
+                    </div>
+                </div>
+                <div style="padding: 20px;">
+                    <div class="audit-table-header" style="grid-template-columns: 2fr 1fr 1fr 1fr 120px;">
+                        <div>DESCRIÇÃO</div>
+                        <div>RESPONSÁVEL</div>
+                        <div>FREQUÊNCIA</div>
+                        <div>STATUS DA RECORRÊNCIA</div>
+                        <div style="text-align: right;">AÇÕES</div>
+                    </div>
+                    <div id="recurrence-list" class="data-list" style="margin-top: 10px; gap: 0;"></div>
                 </div>
             </div>
 
@@ -555,6 +575,7 @@
     <script src="js/notifications.js"></script>
     <script src="js/chat.js"></script>
     <script src="js/audit.js"></script>
+    <script src="js/recurrence.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

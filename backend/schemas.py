@@ -42,6 +42,7 @@ class TaskCreate(BaseModel):
     completedAt: Optional[str] = None
     recurrence: Optional[str] = "none"
     recurrenceDay: Optional[int] = None
+    recurrenceActive: bool = True
 
 class CompanyCreate(BaseModel):
     name: str

@@ -188,6 +188,13 @@ def init_db():
             print(">>> Coluna 'sector_id' adicionada em 'tasks'.")
         except Exception: conn.rollback()
 
+        # Adiciona coluna recurrence_active em tasks (Padrão TRUE)
+        try:
+            cur.execute("ALTER TABLE tasks ADD COLUMN recurrence_active BOOLEAN DEFAULT TRUE")
+            conn.commit()
+            print(">>> Coluna 'recurrence_active' adicionada em 'tasks'.")
+        except Exception: conn.rollback()
+
         # Cria admin se não existir
         cur.execute("SELECT * FROM users WHERE role='admin'")
         if not cur.fetchone():
