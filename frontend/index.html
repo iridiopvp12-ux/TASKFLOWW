@@ -326,7 +326,11 @@
                     <div class="form-group" style="margin-bottom:0;"><label>2. Modelo</label><select id="create-template-select" class="form-input" onchange="applyTemplate()"><option value="">-- Manual --</option></select></div>
                 </div>
                 <div class="form-group"><label>Título</label><input type="text" id="input-desc" class="form-input"></div>
-                <div class="form-group"><label>Prazo</label><input type="date" id="input-date" class="form-input"></div>
+                <div class="form-group"><label id="label-input-date">Prazo</label><input type="date" id="input-date" class="form-input"></div>
+                <div class="form-group" id="container-due-offset" style="display:none;">
+                    <label>Vencimento (Dias após criação)</label>
+                    <input type="number" id="input-due-offset" class="form-input" placeholder="Ex: 5" value="0">
+                </div>
                 <div class="form-group">
                     <label>Responsáveis / Setor</label>
                     <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; max-height: 150px; overflow-y: auto;" id="input-assignee-container">
@@ -347,6 +351,39 @@
                 </div>
             </div>
             <div class="modal-footer"><button class="btn-save" onclick="saveTask()">Criar Tarefa</button></div>
+        </div>
+    </div>
+
+    <!-- Modal Edit Recurrence -->
+    <div class="modal-overlay" id="modal-edit-recurrence">
+        <div class="modal" style="width: 450px;">
+            <div class="modal-header"><h2>Editar Recorrência</h2><button class="btn-close" onclick="closeModal('modal-edit-recurrence')">×</button></div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Frequência</label>
+                    <select id="edit-rec-type" class="form-input" onchange="toggleEditRecurrenceFields()">
+                        <option value="daily">Diário (Todo dia)</option>
+                        <option value="weekly">Semanal</option>
+                        <option value="monthly">Mensal</option>
+                        <option value="fortnightly">Quinzenal</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="group-edit-rec-date">
+                     <label id="label-edit-rec-date">Data Base (Próxima Geração)</label>
+                     <input type="date" id="edit-rec-date" class="form-input">
+                     <small style="color:var(--text-muted); display:block; margin-top:5px;" id="help-edit-rec-date">Define o dia do mês ou da semana.</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Vencimento (Dias após criação)</label>
+                    <input type="number" id="edit-rec-offset" class="form-input" value="0">
+                    <small style="color:var(--text-muted);">Ex: Se gerar dia 5 e colocar 7 dias, vence dia 12.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-save" onclick="saveRecurrenceChanges()">Salvar Alterações</button>
+            </div>
         </div>
     </div>
 
