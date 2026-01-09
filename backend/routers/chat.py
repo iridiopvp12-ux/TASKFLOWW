@@ -304,7 +304,7 @@ def send_message_v2(background_tasks: BackgroundTasks, payload: dict = Body(...)
             cur.execute("""
                 INSERT INTO messages
                 (sender_id, room_id, type, content, files, created_at, reply_to_id, seen)
-                VALUES (%s, %s, 'group', %s, %s, %s, %s, FALSE)
+                VALUES (%s, %s, 'group', %s, %s::jsonb, %s, %s, FALSE)
                 RETURNING id
             """, (sender_id, raw_room_id, content, files_json, now, reply_id))
             new_id = cur.fetchone()[0]
@@ -348,7 +348,7 @@ def send_message_v2(background_tasks: BackgroundTasks, payload: dict = Body(...)
             cur.execute("""
                 INSERT INTO messages
                 (sender_id, target_id, type, content, files, created_at, reply_to_id, seen)
-                VALUES (%s, %s, 'dm', %s, %s, %s, %s, FALSE)
+                VALUES (%s, %s, 'dm', %s, %s::jsonb, %s, %s, FALSE)
                 RETURNING id
             """, (sender_id, target_id, content, files_json, now, reply_id))
             new_id = cur.fetchone()[0]
@@ -456,7 +456,7 @@ def edit_message(id: int, background_tasks: BackgroundTasks, payload: dict = Bod
             else:
                 if user_id not in users_reacted: users_reacted.append(user_id)
                 current_reactions[emoji] = users_reacted
-            cur.execute("UPDATE messages SET reactions=%s WHERE id=%s", (json.dumps(current_reactions), id))
+            cur.execute("UPDATE messages SET reactions=%s::jsonb WHERE id=%s", (json.dumps(current_reactions), id))
 
         conn.commit()
 
