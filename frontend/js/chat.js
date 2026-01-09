@@ -145,7 +145,7 @@ async function handleSendMessage(event) {
 
             // Check if backend rejected files (empty array returned)
             if (uploadedFiles.length === 0 && files.length > 0) {
-                showToast("Tipo de arquivo não permitido.", "error");
+                showToast("Arquivo não permitido (Executáveis bloqueados).", "error");
                 return;
             }
 
