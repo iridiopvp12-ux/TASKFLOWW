@@ -86,7 +86,28 @@ function createCard(task) {
     const done = task.subtasks.filter(s => s.done).length;
     const total = task.subtasks.length;
     const pct = total > 0 ? (done/total)*100 : 0;
-    const isLate = task.status !== 'done' && task.dueDate < new Date().toISOString().split('T')[0];
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+    const isLate = task.status !== 'done' && task.dueDate < todayStr;
+    const isToday = task.status !== 'done' && task.dueDate === todayStr;
+    const isTomorrow = task.status !== 'done' && task.dueDate === tomorrowStr;
+
+    let urgencyClass = '';
+    let urgencyIcon = '';
+
+    if (isLate) {
+        urgencyClass = 'overdue';
+        // recIcon handled below, but maybe urgency icon? isLate already has red border
+    } else if (isToday) {
+        urgencyClass = 'due-today';
+        urgencyIcon = '⚠️';
+    } else if (isTomorrow) {
+        urgencyClass = 'due-tomorrow';
+        urgencyIcon = '⏳';
+    }
 
     let recIcon = '';
     if (task.recurrence === 'daily') recIcon = '<span title="Diário" style="margin-left:5px">🔁</span>';
@@ -95,14 +116,14 @@ function createCard(task) {
     if (task.recurrence === 'fortnightly') recIcon = '<span title="Quinzenal" style="margin-left:5px">📅x2</span>';
 
     const html = `
-    <div class="card p-${task.prio} ${total>0?'has-subtasks':''} ${isLate?'overdue':''}" id="${task.id}" draggable="true" ondragstart="drag(event)" onclick="openDetails(${task.id})">
+    <div class="card p-${task.prio} ${total>0?'has-subtasks':''} ${urgencyClass}" id="${task.id}" draggable="true" ondragstart="drag(event)" onclick="openDetails(${task.id})">
 
         <div class="card-company-header">
              <div class="card-company-name">${c ? c.name : 'INTERNO'}</div>
              <span class="badge b-${getPrioClass(task.prio)}">${task.prio}</span>
         </div>
 
-        <h3>${task.desc} ${recIcon}</h3>
+        <h3>${urgencyIcon} ${task.desc} ${recIcon}</h3>
 
         <div class="card-date ${isLate?'late-text':''}"><span>📅 ${formatDate(task.dueDate)}</span></div>
         <div class="mini-progress"><div class="mini-progress-bar" style="width:${pct}%"></div></div>

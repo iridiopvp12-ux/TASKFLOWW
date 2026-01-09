@@ -49,7 +49,11 @@ button.btn-danger-outline { background:transparent; color:var(--danger); border:
 /* CARDS KANBAN */
 .card { background:var(--bg-card); padding:18px; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.2); cursor:pointer; position:relative; border:1px solid transparent; transition:all 0.2s ease; overflow:hidden; flex-shrink: 0; z-index: 2; } 
 .card:hover { border-color:var(--border); transform:translateY(-4px); box-shadow:0 8px 16px rgba(0,0,0,0.3); }
-.card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; } .card.p-Alta::before { background:var(--prio-high); } .card.p-Média::before { background:var(--prio-med); } .card.p-Baixa::before { background:var(--prio-low); } .card.overdue { border:1px solid var(--prio-high); background:rgba(239,68,68,0.1); }
+.card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; } .card.p-Alta::before { background:var(--prio-high); } .card.p-Média::before { background:var(--prio-med); } .card.p-Baixa::before { background:var(--prio-low); }
+.card.overdue { border:1px solid var(--prio-high); background:rgba(239,68,68,0.1); }
+.card.due-today { border:1px solid #f59e0b; background:rgba(245, 158, 11, 0.15); }
+.card.due-tomorrow { border:1px solid #3b82f6; background:rgba(59, 130, 246, 0.1); }
+
 .card-company-header { display:flex; justify-content:space-between; align-items: center; margin-bottom:6px; } 
 .card-company-name { font-size:0.9rem; font-weight:700; color:white; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 180px; }
 .card h3 { margin:0 0 10px 0; font-size:1rem; font-weight: 400; color:#cbd5e1; padding-left:0; line-height: 1.4; } 
