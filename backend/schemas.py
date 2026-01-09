@@ -55,3 +55,4 @@ class StandardTaskCreate(BaseModel):
     title: str
     recurrence: str
     subtasks: List[str] = []
+    dueOffset: int = 0

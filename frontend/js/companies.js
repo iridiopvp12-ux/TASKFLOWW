@@ -156,6 +156,7 @@ function clearStagingArea() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('comp-task-date').value = today;
     document.getElementById('comp-task-recurrence').value = 'monthly';
+    document.getElementById('comp-task-due-offset').value = '0';
     temporarySubtasks = [];
     renderTempSubtasks();
 }
@@ -168,6 +169,7 @@ function fillStandardTask() {
     if (tpl) {
         document.getElementById('comp-task-desc').value = tpl.title;
         document.getElementById('comp-task-recurrence').value = tpl.recurrence;
+        document.getElementById('comp-task-due-offset').value = tpl.dueOffset || 0;
         // Copia segura das subtarefas
         temporarySubtasks = (tpl.subtasks && Array.isArray(tpl.subtasks)) ? [...tpl.subtasks] : []; 
         renderTempSubtasks();
@@ -207,6 +209,7 @@ function addTaskToPackage() {
     const desc = document.getElementById('comp-task-desc').value;
     const date = document.getElementById('comp-task-date').value;
     const rec = document.getElementById('comp-task-recurrence').value;
+    const offset = parseInt(document.getElementById('comp-task-due-offset').value) || 0;
 
     if (!desc) return showToast("Dê um título para a tarefa.", "error");
     if (!date) return showToast("Defina uma data de início.", "error");
@@ -215,6 +218,7 @@ function addTaskToPackage() {
         desc: desc,
         date: date,
         recurrence: rec,
+        dueOffset: offset,
         subtasks: [...temporarySubtasks]
     };
 
@@ -238,12 +242,13 @@ function renderPackageQueue() {
     }
 
     packageQueue.forEach((t, index) => {
+        const offsetText = t.dueOffset > 0 ? `| +${t.dueOffset}d` : '';
         container.insertAdjacentHTML('beforeend', `
             <div style="background: var(--bg-card); padding: 8px 12px; border-bottom: 1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
                 <div>
                     <div style="font-weight:600; font-size: 0.9rem;">${t.desc}</div>
                     <div style="font-size: 0.75rem; color: var(--text-muted);">
-                        📅 ${formatDateBr(t.date)} | 🔄 ${translateRecurrence(t.recurrence)} | ✅ ${t.subtasks.length} itens
+                        📅 ${formatDateBr(t.date)} | 🔄 ${translateRecurrence(t.recurrence)} ${offsetText} | ✅ ${t.subtasks.length} itens
                     </div>
                 </div>
                 <button class="btn-danger-outline" style="padding: 2px 8px;" onclick="removeFromPackage(${index})">🗑️</button>
@@ -315,7 +320,8 @@ async function saveCompany() {
                 status: "todo", 
                 completedAt: null,
                 recurrence: task.recurrence, 
-                recurrenceDay: recurrenceDay
+                recurrenceDay: recurrenceDay,
+                dueOffset: task.dueOffset
             });
             successCount++;
         }
@@ -387,13 +393,14 @@ async function saveStdTask() {
     const title = document.getElementById('std-title').value;
     const rec = document.getElementById('std-rec').value;
     const subsText = document.getElementById('std-subs-text').value;
+    const offset = parseInt(document.getElementById('std-due-offset').value) || 0;
 
     if(!title) return showToast("Título obrigatório", "error");
     
     const subs = subsText.split(/[\n,]/).map(s => s.trim()).filter(s => s !== "");
 
     // Envia para a rota /standards do Backend
-    const payload = { title, recurrence: rec, subtasks: subs };
+    const payload = { title, recurrence: rec, subtasks: subs, dueOffset: offset };
     const res = await fetchAPI('/standards', 'POST', payload);
 
     if(res) {
@@ -404,6 +411,7 @@ async function saveStdTask() {
         document.getElementById('std-title').value = '';
         document.getElementById('std-rec').value = 'none';
         document.getElementById('std-subs-text').value = '';
+        document.getElementById('std-due-offset').value = '0';
         
         renderStdTaskList();
         showToast("Padrão salvo permanentemente!", "success");

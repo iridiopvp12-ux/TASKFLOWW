@@ -472,6 +472,10 @@
                                 <option value="fortnightly">Quinzenal</option>
                             </select>
                         </div>
+                        <div style="flex:1;">
+                             <label>Vencimento (Dias+)</label>
+                             <input type="number" id="comp-task-due-offset" class="form-input" value="0" placeholder="0">
+                        </div>
                     </div>
 
                     <div style="margin-bottom: 15px;">
@@ -526,6 +530,10 @@
                             <option value="weekly">Semanal</option>
                             <option value="fortnightly">Quinzenal</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Vencimento Padrão (Dias após criação)</label>
+                        <input type="number" id="std-due-offset" class="form-input" value="0">
                     </div>
                     <div class="form-group">
                         <label>Subtarefas (Checklist) - Separe por vírgula se quiser colar várias</label>

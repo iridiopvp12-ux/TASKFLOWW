@@ -144,6 +144,12 @@ def init_db():
             subtasks JSONB DEFAULT '[]'::jsonb
         )""")
 
+        # Add due_offset to standard_tasks
+        try:
+            cur.execute("ALTER TABLE standard_tasks ADD COLUMN due_offset INTEGER DEFAULT 0")
+            conn.commit()
+        except Exception: conn.rollback()
+
         # --- NOVA TABELA PARA NOTIFICAÇÕES ---
         cur.execute("""CREATE TABLE IF NOT EXISTS notifications (
             id SERIAL PRIMARY KEY,
