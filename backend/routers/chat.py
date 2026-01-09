@@ -233,7 +233,8 @@ def get_messages(roomId: str, currentUserId: int):
 
         for r in rows:
             files = r['files']
-            if isinstance(files, str):
+            if files is None: files = []
+            elif isinstance(files, str):
                 try: files = json.loads(files)
                 except: files = []
 
@@ -382,7 +383,13 @@ def send_message_v2(background_tasks: BackgroundTasks, payload: dict = Body(...)
 @router.post("/chat/upload")
 def upload_files(files: List[UploadFile] = File(...)):
     uploaded = []
-    ALLOWED_EXTS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'txt', 'docx', 'zip', 'mp3', 'wav', 'ogg', 'webm', 'mp4'}
+    # Expanded extension list to avoid silent failures for common office/archive files
+    ALLOWED_EXTS = {
+        'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp',
+        'pdf', 'txt', 'docx', 'doc', 'xls', 'xlsx', 'csv', 'ppt', 'pptx',
+        'zip', 'rar', '7z', 'tar', 'gz',
+        'mp3', 'wav', 'ogg', 'webm', 'mp4', 'mkv', 'avi', 'mov'
+    }
     os.makedirs("frontend/uploads", exist_ok=True)
 
     for file in files:

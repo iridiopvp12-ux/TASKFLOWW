@@ -143,6 +143,12 @@ async function handleSendMessage(event) {
             });
             uploadedFiles = await res.json();
 
+            // Check if backend rejected files (empty array returned)
+            if (uploadedFiles.length === 0 && files.length > 0) {
+                showToast("Tipo de arquivo não permitido.", "error");
+                return;
+            }
+
         } catch (e) {
             console.error("Erro upload", e);
             showToast("Erro ao enviar arquivos", "error");
