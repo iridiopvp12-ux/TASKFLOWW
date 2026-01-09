@@ -78,6 +78,7 @@ function initChat() {
     chatComponent.addEventListener('delete-message', handleDeleteMessage);
     chatComponent.addEventListener('send-message-reaction', handleReaction);
     chatComponent.addEventListener('add-room', handleAddRoom);
+    chatComponent.addEventListener('open-file', handleOpenFile);
 
     // Carregar lista de salas (Usuários)
     loadRooms();
@@ -110,6 +111,15 @@ async function handleFetchMessages(event) {
         const msgs = await fetchAPI(`/chat/messages?roomId=${roomIdStr}&currentUserId=${currentUser.id}`);
 
         if (msgs) {
+            // Corrigir URLs dos arquivos (caso sejam relativas)
+            msgs.forEach(m => {
+                if (m.files) {
+                    m.files.forEach(f => {
+                        f.url = fixFileUrl(f.url);
+                        if (f.preview) f.preview = fixFileUrl(f.preview);
+                    });
+                }
+            });
             chatComponent.messages = JSON.stringify(msgs);
         } else {
             chatComponent.messages = '[]';
@@ -327,7 +337,30 @@ function addMessageToComponent(msg) {
     const currentMsgs = JSON.parse(chatComponent.messages || '[]');
     if (currentMsgs.find(m => m._id === msg._id)) return;
 
+    // Fix URL before render
+    if (msg.files) {
+        msg.files.forEach(f => {
+            f.url = fixFileUrl(f.url);
+            if (f.preview) f.preview = fixFileUrl(f.preview);
+        });
+    }
+
     chatComponent.messages = JSON.stringify([...currentMsgs, msg]);
+}
+
+function fixFileUrl(url) {
+    if (!url) return url;
+    if (url.startsWith('http') || url.startsWith('blob:')) return url;
+    // Remove leading slash if API_URL has trailing slash
+    // Mas assumindo API_URL sem trailing slash e url com
+    return `${API_URL}${url}`;
+}
+
+function handleOpenFile(event) {
+    const { file } = event.detail[0] || event.detail;
+    if (file && file.url) {
+        window.open(file.url, '_blank');
+    }
 }
 
 function updateMessageInList(payload) {
