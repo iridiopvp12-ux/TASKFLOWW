@@ -8,6 +8,25 @@ function openCreateModal(){
     document.getElementById('input-desc').value = '';
     document.getElementById('create-company-select').value = '';
     document.getElementById('create-template-select').innerHTML = '<option value="">-- Manual --</option>';
+    document.getElementById('input-due-offset').value = '0';
+
+    // Add event listener for recurrence change if not exists
+    const recSelect = document.getElementById('input-recurrence');
+    recSelect.onchange = function() {
+        const val = recSelect.value;
+        const offsetContainer = document.getElementById('container-due-offset');
+        const dateLabel = document.getElementById('label-input-date');
+
+        if (val !== 'none') {
+            offsetContainer.style.display = 'block';
+            dateLabel.innerText = 'Início da Recorrência';
+        } else {
+            offsetContainer.style.display = 'none';
+            dateLabel.innerText = 'Prazo';
+        }
+    };
+    // Trigger change to set initial state
+    recSelect.onchange();
 
     // Render Assignees/Sector Logic
     renderAssigneeSelector();
@@ -103,6 +122,7 @@ async function saveTask() {
     const desc = document.getElementById('input-desc').value;
     const date = document.getElementById('input-date').value;
     const recurrence = document.getElementById('input-recurrence').value; 
+    const dueOffset = parseInt(document.getElementById('input-due-offset').value) || 0;
 
     if(!desc || !date) return showToast("Preencha dados obrigatórios", "error");
     
@@ -143,7 +163,7 @@ async function saveTask() {
         prio: document.getElementById('input-prio').value,
         companyId: compId, subtasks,
         status: "todo", completedAt: null,
-        recurrence, recurrenceDay 
+        recurrence, recurrenceDay, dueOffset
     };
 
     const res = await fetchAPI('/tasks', 'POST', newTask);

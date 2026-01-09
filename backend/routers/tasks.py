@@ -4,7 +4,7 @@ import json
 from ..database import get_db, row_to_dict
 from ..schemas import TaskCreate, StandardTaskCreate
 from ..realtime import manager
-from datetime import datetime
+from datetime import datetime, timedelta
 
 print(">>> LOADING TASKS ROUTER v3.0 (NORMALIZED) <<<")
 
@@ -185,8 +185,8 @@ def create_task(t: TaskCreate, background_tasks: BackgroundTasks):
         if t.assignedTo: assign = int(t.assignedTo)
         elif t.assigneeIds and len(t.assigneeIds) > 0: assign = int(t.assigneeIds[0])
 
-        cur.execute("INSERT INTO tasks (description, status, assigned_to, priority, due_date, completed_at, company_id, recurrence, recurrence_day, sector_id, recurrence_active) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
-                    (t.desc, t.status, assign, t.prio, t.dueDate, t.completedAt, comp, t.recurrence, t.recurrenceDay, t.sectorId, t.recurrenceActive))
+        cur.execute("INSERT INTO tasks (description, status, assigned_to, priority, due_date, completed_at, company_id, recurrence, recurrence_day, sector_id, recurrence_active, due_offset) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                    (t.desc, t.status, assign, t.prio, t.dueDate, t.completedAt, comp, t.recurrence, t.recurrenceDay, t.sectorId, t.recurrenceActive, t.dueOffset))
 
         tid = cur.fetchone()[0]
 
@@ -276,13 +276,32 @@ def process_recurrence(background_tasks: BackgroundTasks):
                     if delta > 0 and delta % 15 == 0: should_create = True
 
             if should_create:
+                # Calculate new due_date based on offset
+                due_offset = t.get('due_offset', 0) or 0
+                final_due_date = target_date
+                if due_offset > 0:
+                    try:
+                        base_dt = datetime.strptime(target_date, "%Y-%m-%d")
+                        final_due_date = (base_dt + timedelta(days=due_offset)).date().isoformat()
+                    except: pass
+
+                # Check if already created (using target_date which is creation date logic, but unique constraint might need review.
+                # For now checking same description and company created TODAY (or for this recurrence cycle))
+                # Actually original logic checked due_date = target_date. Now due_date changes.
+                # We should check if a task was created FROM THIS MASTER for this cycle.
+                # But we don't link back.
+                # Original logic: SELECT id ... WHERE ... AND due_date = %s (target_date)
+                # If we change due_date, we might create duplicates if we run this multiple times a day.
+                # Let's keep checking using the final_due_date or maybe we should store "recurrence_origin_date"?
+                # For simplicity and backward compat, we check if a task exists with the CALCULATED due_date.
+
                 comp_val = t['company_id']
                 if comp_val is None:
                     query = "SELECT id FROM tasks WHERE description = %s AND due_date = %s AND company_id IS NULL"
-                    params = (t['description'], target_date)
+                    params = (t['description'], final_due_date)
                 else:
                     query = "SELECT id FROM tasks WHERE description = %s AND due_date = %s AND company_id = %s"
-                    params = (t['description'], target_date, comp_val)
+                    params = (t['description'], final_due_date, comp_val)
 
                 cur.execute(query, params)
 
@@ -293,7 +312,7 @@ def process_recurrence(background_tasks: BackgroundTasks):
 
                     cur.execute(
                         "INSERT INTO tasks (description, status, assigned_to, priority, due_date, completed_at, company_id, recurrence, recurrence_day, sector_id) VALUES (%s, %s, %s, %s, %s, %s, %s, 'none', None, %s) RETURNING id",
-                        (t['description'], 'todo', t['assigned_to'], t['priority'], target_date, None, t['company_id'], t['sector_id'])
+                        (t['description'], 'todo', t['assigned_to'], t['priority'], final_due_date, None, t['company_id'], t['sector_id'])
                     )
                     new_tid = cur.fetchone()[0]
 
@@ -365,6 +384,12 @@ def update_task(id: int, background_tasks: BackgroundTasks, t: dict = Body(...))
             updates.append("due_date=%s"); params.append(t['dueDate'])
         if 'prio' in t:
             updates.append("priority=%s"); params.append(t['prio'])
+        if 'recurrence' in t:
+            updates.append("recurrence=%s"); params.append(t['recurrence'])
+        if 'recurrenceDay' in t:
+            updates.append("recurrence_day=%s"); params.append(t['recurrenceDay'])
+        if 'dueOffset' in t:
+            updates.append("due_offset=%s"); params.append(t['dueOffset'])
 
         if updates:
             sql = f"UPDATE tasks SET {', '.join(updates)} WHERE id=%s"
@@ -442,6 +467,7 @@ def get_recurrent_tasks():
             SELECT
                 t.id, t.description as "desc", t.status, t.assigned_to as "assignedTo",
                 t.recurrence, t.recurrence_day as "recurrenceDay", t.recurrence_active as "recurrenceActive",
+                t.due_offset as "dueOffset",
                 t.sector_id as "sectorId",
                 c.name as "companyName", u.name as "userName",
                 s.name as "sectorName"

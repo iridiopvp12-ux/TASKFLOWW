@@ -1,0 +1,19 @@
+127.0.0.1 - - [09/Jan/2026 11:18:00] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [09/Jan/2026 11:18:01] "GET /js/config.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Jan/2026 11:18:01] "GET /js/utils.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Jan/2026 11:18:01] "GET /css/styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [09/Jan/2026 11:18:01] "GET /js/auth.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Jan/2026 11:18:01] "GET /js/api.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Jan/2026 11:18:01] "GET /css/dashboard-tv.css HTTP/1.1" 200 -
+127.0.0.1 - - [09/Jan/2026 11:18:01] "GET /js/calendar.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Jan/2026 11:18:01] "GET /js/notifications.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Jan/2026 11:18:01] "GET /js/companies.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Jan/2026 11:18:01] "GET /js/kanban.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Jan/2026 11:18:01] "GET /js/tasks.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Jan/2026 11:18:01] "GET /js/dashboard.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Jan/2026 11:18:01] "GET /js/chat.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Jan/2026 11:18:01] "GET /js/recurrence.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Jan/2026 11:18:01] "GET /js/main.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Jan/2026 11:18:01] "GET /js/audit.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Jan/2026 11:18:02] code 404, message File not found
+127.0.0.1 - - [09/Jan/2026 11:18:02] "GET /users HTTP/1.1" 404 -

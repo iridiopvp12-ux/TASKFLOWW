@@ -242,6 +242,12 @@ def init_db():
             conn.commit()
         except Exception: conn.rollback()
 
+        # Adiciona coluna due_offset em tasks (Padrão 0)
+        try:
+            cur.execute("ALTER TABLE tasks ADD COLUMN due_offset INTEGER DEFAULT 0")
+            conn.commit()
+        except Exception: conn.rollback()
+
         # Cria admin se não existir
         cur.execute("SELECT * FROM users WHERE role='admin'")
         if not cur.fetchone():
