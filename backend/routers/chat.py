@@ -64,7 +64,7 @@ def get_rooms(current_user_id: int):
                     content_preview = "📎 Anexo"
 
                 last_message_obj = {
-                    "content": content_preview,
+                    "content": content_preview or "",
                     "senderId": str(last_msg[2]),
                     "username": "Você" if is_me else u['name'],
                     "timestamp": last_msg[1][11:16] if last_msg[1] else "",
@@ -127,7 +127,7 @@ def get_rooms(current_user_id: int):
                 if not content_preview and files_data: content_preview = "📎 Anexo"
 
                 last_message_obj = {
-                    "content": content_preview,
+                    "content": content_preview or "",
                     "senderId": str(last_msg[2]),
                     "username": "Você" if is_me else (last_msg[5] or "User"),
                     "timestamp": last_msg[1][11:16] if last_msg[1] else "",
@@ -256,7 +256,7 @@ def get_messages(roomId: str, currentUserId: int):
 
             formatted.append({
                 "_id": str(r['id']),
-                "content": r['content'] if not r['deleted'] else "🚫 Mensagem apagada",
+                "content": (r['content'] or "") if not r['deleted'] else "🚫 Mensagem apagada",
                 "senderId": str(r['sender_id']),
                 "username": r.get('sender_name', ''), # Importante pra grupo
                 "date": date_str,
@@ -289,7 +289,7 @@ def send_message_v2(background_tasks: BackgroundTasks, payload: dict = Body(...)
 
         sender_id = int(payload['senderId'])
         raw_room_id = payload['roomId']
-        content = payload.get('content')
+        content = payload.get('content') or ""
         files_json = json.dumps(payload.get('files', []))
 
         reply_id = None
