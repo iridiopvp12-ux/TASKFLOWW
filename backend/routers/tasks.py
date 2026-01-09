@@ -514,7 +514,7 @@ def get_standards():
     conn = get_db()
     try:
         cur = conn.cursor()
-        cur.execute("SELECT id, title, recurrence, subtasks FROM standard_tasks ORDER BY id ASC")
+        cur.execute("SELECT id, title, recurrence, subtasks, due_offset as \"dueOffset\" FROM standard_tasks ORDER BY id ASC")
         res = row_to_dict(cur)
         for r in res:
             if isinstance(r['subtasks'], str): r['subtasks'] = json.loads(r['subtasks'])
@@ -528,8 +528,8 @@ def create_standard(item: StandardTaskCreate):
     try:
         cur = conn.cursor()
         subs = json.dumps(item.subtasks)
-        cur.execute("INSERT INTO standard_tasks (title, recurrence, subtasks) VALUES (%s, %s, %s) RETURNING id",
-                    (item.title, item.recurrence, subs))
+        cur.execute("INSERT INTO standard_tasks (title, recurrence, subtasks, due_offset) VALUES (%s, %s, %s, %s) RETURNING id",
+                    (item.title, item.recurrence, subs, item.dueOffset))
         new_id = cur.fetchone()[0]
         conn.commit()
         return {"id": new_id}
