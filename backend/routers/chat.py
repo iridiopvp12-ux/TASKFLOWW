@@ -383,21 +383,28 @@ def send_message_v2(background_tasks: BackgroundTasks, payload: dict = Body(...)
 @router.post("/chat/upload")
 def upload_files(files: List[UploadFile] = File(...)):
     uploaded = []
-    # Expanded extension list to avoid silent failures for common office/archive files
-    ALLOWED_EXTS = {
-        'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp',
-        'pdf', 'txt', 'docx', 'doc', 'xls', 'xlsx', 'csv', 'ppt', 'pptx',
-        'zip', 'rar', '7z', 'tar', 'gz',
-        'mp3', 'wav', 'ogg', 'webm', 'mp4', 'mkv', 'avi', 'mov'
-    }
+
+    # Block potentially dangerous executables, allow everything else
+    BLOCKED_EXTS = {'exe', 'bat', 'sh', 'cmd', 'com', 'ps1', 'vbs', 'scr', 'js'}
+
     os.makedirs("frontend/uploads", exist_ok=True)
 
     for file in files:
         try:
-            ext = file.filename.split('.')[-1].lower()
-            if ext not in ALLOWED_EXTS: continue
+            # Handle files with no extension or multiple dots
+            parts = file.filename.split('.')
+            if len(parts) > 1:
+                ext = parts[-1].lower()
+            else:
+                ext = ""
 
-            filename = f"{uuid.uuid4()}.{ext}"
+            if ext in BLOCKED_EXTS:
+                print(f"Blocked upload for file: {file.filename} (Extension: {ext})")
+                continue
+
+            # If no extension, use 'file' or just keep it
+            suffix = f".{ext}" if ext else ""
+            filename = f"{uuid.uuid4()}{suffix}"
             path = f"frontend/uploads/{filename}"
 
             with open(path, "wb") as buffer:
