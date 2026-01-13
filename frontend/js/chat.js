@@ -359,8 +359,16 @@ function fixFileUrl(url) {
 function handleOpenFile(event) {
     const { file } = event.detail[0] || event.detail;
     if (file && file.url) {
-        window.open(file.url, '_blank');
+        showToast(`Abrindo ${file.name || 'arquivo'}...`, "info");
+        const link = document.createElement('a');
+        link.href = file.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     } else {
+        showToast("Erro: URL do arquivo inválida.", "error");
         console.error("File url missing or invalid file object", file);
     }
 }
