@@ -79,6 +79,7 @@ function initChat() {
     chatComponent.addEventListener('send-message-reaction', handleReaction);
     chatComponent.addEventListener('add-room', handleAddRoom);
     chatComponent.addEventListener('open-file', handleOpenFile);
+    chatComponent.addEventListener('menu-action-handler', handleMenuAction);
 
     // Carregar lista de salas (Usuários)
     loadRooms();
@@ -278,7 +279,7 @@ async function createGroup() {
     // Add self
     userIds.push(currentUser.id);
 
-    const res = await fetchAPI('/chat/room', 'POST', { roomName: name, users: userIds });
+    const res = await fetchAPI(`/chat/room?current_user_id=${currentUser.id}`, 'POST', { roomName: name, users: userIds });
 
     if(res) {
         // Reset and Close
@@ -287,6 +288,74 @@ async function createGroup() {
         loadRooms();
     }
 }
+
+async function handleMenuAction(event) {
+    const { roomId, action } = event.detail[0] || event.detail;
+    // Precisamos de info da sala (ownerId)
+    const rooms = JSON.parse(chatComponent.rooms);
+    const room = rooms.find(r => r.roomId === roomId);
+
+    if (!room) return;
+
+    // Check if it's a DM or Group
+    const isGroup = roomId.toString().startsWith('group_');
+
+    // Mapeando ações do menu padrão (se usarmos customMenu, adaptaremos)
+    // O componente tem actions built-in? O vue-advanced-chat tem 'menu-actions' prop.
+    // Vamos assumir que configuraremos 'menuActions' dinamicamente.
+    // Por padrão o componente não emite 'menu-action-handler' sem custom actions.
+    // Vamos configurar as actions ao carregar as salas ou ao abrir a sala.
+    // Mas o listener é global.
+
+    // Como identificar qual ação?
+    // O event detail traz { action: { name: '...' }, roomId }
+
+    const actionName = action.name;
+
+    if (actionName === 'leaveGroup') {
+        if (!confirm("Sair do grupo?")) return;
+        await fetchAPI(`/chat/room/${roomId}`, 'PUT', { action: 'leave', currentUserId: currentUser.id });
+        loadRooms();
+        chatComponent.roomId = null; // Close
+    } else if (actionName === 'renameGroup') {
+        const newName = prompt("Novo nome:", room.roomName);
+        if (newName && newName !== room.roomName) {
+             await fetchAPI(`/chat/room/${roomId}`, 'PUT', { action: 'rename', roomName: newName, currentUserId: currentUser.id });
+             loadRooms();
+        }
+    } else if (actionName === 'addMember') {
+        // Simple prompt for User ID (Melhorar com modal depois)
+        // Por simplicidade, listar usuários num prompt? Não, modal.
+        // Reutilizar o modal de criar grupo? Adaptado.
+        alert("Funcionalidade simplificada: Para adicionar, recrie o grupo ou peça ao admin.");
+        // TODO: Implementar Modal de Adicionar Membros específico
+    } else if (actionName === 'removeMember') {
+        // Show list of members to remove
+        // Precisamos dos usuários da sala.
+        const memberId = prompt("ID do usuário para remover (Veja na lista de contatos):");
+        if(memberId) {
+             await fetchAPI(`/chat/room/${roomId}`, 'PUT', { action: 'remove_member', userId: memberId, currentUserId: currentUser.id });
+             // Reload room logic?
+             alert("Solicitação enviada.");
+        }
+    }
+}
+
+// Configura o menu dinâmico ao carregar as salas (ou poderia ser no click)
+// O vue-advanced-chat aceita `menu-actions` como prop.
+// Vamos definir globalmente, mas filtrar visualmente? Não, a prop é array.
+// Melhor estratégia: Passar JSON na prop `menu-actions` que serve pra todas,
+// e o handler decide se pode ou não.
+// Mas para UX, seria bom só mostrar 'Gerenciar' se for dono.
+// O componente atualiza props reativamente.
+// Vamos definir menuActions fixas e controlar o erro no backend.
+
+chatComponent.menuActions = JSON.stringify([
+    { name: 'leaveGroup', title: 'Sair do Grupo' },
+    { name: 'renameGroup', title: 'Renomear (Dono)' },
+    { name: 'removeMember', title: 'Remover Membro (ID)' }
+]);
+
 
 // Expose to window for HTML button
 window.createGroup = createGroup;
