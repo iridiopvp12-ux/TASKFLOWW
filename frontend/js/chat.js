@@ -350,11 +350,11 @@ async function handleMenuAction(event) {
 // O componente atualiza props reativamente.
 // Vamos definir menuActions fixas e controlar o erro no backend.
 
-chatComponent.menuActions = JSON.stringify([
+chatComponent.menuActions = [
     { name: 'leaveGroup', title: 'Sair do Grupo' },
     { name: 'renameGroup', title: 'Renomear (Dono)' },
     { name: 'removeMember', title: 'Remover Membro (ID)' }
-]);
+];
 
 
 // Expose to window for HTML button
