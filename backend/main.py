@@ -32,6 +32,7 @@ app.add_middleware(
 def startup_event():
     init_db()
 
+
 # 3. Rotas da API (Backend)
 app.include_router(auth.router)
 app.include_router(users.router)

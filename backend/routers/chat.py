@@ -303,6 +303,8 @@ def get_messages(roomId: str, currentUserId: int):
             elif isinstance(files, str):
                 try: files = json.loads(files)
                 except: files = []
+            if files is None:
+                files = []
 
             reactions = r['reactions']
             if isinstance(reactions, str):
@@ -357,7 +359,11 @@ def send_message_v2(background_tasks: BackgroundTasks, payload: dict = Body(...)
         sender_id = int(payload['senderId'])
         raw_room_id = payload['roomId']
         content = payload.get('content') or ""
-        files_json = json.dumps(payload.get('files', []))
+
+        files_data = payload.get('files')
+        if files_data is None:
+            files_data = []
+        files_json = json.dumps(files_data)
 
         reply_id = None
         if payload.get('replyMessage'):
