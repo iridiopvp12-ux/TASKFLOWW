@@ -502,6 +502,24 @@ def upload_files(files: List[UploadFile] = File(...)):
 
     return uploaded
 
+@router.get("/chat/download/{filename}")
+def download_file(filename: str, name: str = Query(None)):
+    path = f"frontend/uploads/{filename}"
+    if not os.path.exists(path):
+        return {"error": "File not found"}
+
+    # Determine MIME type
+    mime_type, _ = mimetypes.guess_type(path)
+    if not mime_type:
+        mime_type = "application/octet-stream"
+
+    # Force original filename if provided
+    headers = {}
+    if name:
+        headers["Content-Disposition"] = f'attachment; filename="{name}"'
+
+    return FileResponse(path, media_type=mime_type, headers=headers)
+
 @router.put("/chat/message/{id}")
 def edit_message(id: int, background_tasks: BackgroundTasks, payload: dict = Body(...)):
     conn = get_db()
