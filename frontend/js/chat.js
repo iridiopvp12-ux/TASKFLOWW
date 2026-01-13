@@ -452,6 +452,18 @@ function handleOpenFile(event) {
         targetUrl = fixFileUrl(targetUrl);
     }
 
+    // Force usage of download endpoint for files to ensure headers are correct
+    // Regex matches /uploads/UUID.ext
+    if (targetUrl && targetUrl.includes('/uploads/')) {
+        const parts = targetUrl.split('/uploads/');
+        if (parts.length > 1) {
+             const filename = parts[1];
+             const originalName = file.name || filename;
+             // Construct download URL
+             targetUrl = `${API_URL}/chat/download/${filename}?name=${encodeURIComponent(originalName)}`;
+        }
+    }
+
     if (targetUrl) {
         showToast(`Abrindo ${file.name || 'arquivo'}...`, "info");
         const link = document.createElement('a');

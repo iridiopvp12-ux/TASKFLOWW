@@ -7,6 +7,14 @@ import json
 from datetime import datetime
 from ..database import get_db, row_to_dict
 from ..realtime import manager
+import mimetypes
+import urllib.parse
+
+# Explicitly register common Office MIME types to avoid "Zip" interpretation
+mimetypes.add_type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '.xlsx')
+mimetypes.add_type('application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.docx')
+mimetypes.add_type('application/vnd.openxmlformats-officedocument.presentationml.presentation', '.pptx')
+mimetypes.add_type('application/vnd.ms-excel', '.xls')
 
 router = APIRouter()
 

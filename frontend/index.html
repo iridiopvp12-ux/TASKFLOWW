@@ -88,6 +88,11 @@
                     :show-emojis="true"
                     :show-reaction-emojis="true"
                     :multiple-files="true"
+                    :menu-actions="JSON.stringify([
+                        { name: 'leaveGroup', title: 'Sair do Grupo' },
+                        { name: 'renameGroup', title: 'Renomear (Dono)' },
+                        { name: 'removeMember', title: 'Remover Membro (ID)' }
+                    ])"
                     accepted-files="*"
                 >
                 </vue-advanced-chat>
