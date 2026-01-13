@@ -358,18 +358,45 @@ function fixFileUrl(url) {
 
 function handleOpenFile(event) {
     const { file } = event.detail[0] || event.detail;
-    if (file && file.url) {
+
+    // Tenta encontrar a URL em propriedades alternativas se file.url não existir
+    let targetUrl = file ? (file.url || file.file || file.source || file.src) : null;
+
+    // Se for objeto, tenta extrair url
+    if (typeof targetUrl === 'object' && targetUrl !== null) {
+        targetUrl = targetUrl.url || targetUrl.file;
+    }
+
+    // Se ainda não achou e temos um objeto file, procura qualquer string que pareça URL
+    if (!targetUrl && file) {
+        for (const key in file) {
+            const val = file[key];
+            if (typeof val === 'string' && (val.startsWith('http') || val.startsWith('/uploads') || val.startsWith('blob:'))) {
+                targetUrl = val;
+                break;
+            }
+        }
+    }
+
+    // Garante que a URL seja absoluta se for relativa
+    if (targetUrl && typeof targetUrl === 'string') {
+        targetUrl = fixFileUrl(targetUrl);
+    }
+
+    if (targetUrl) {
         showToast(`Abrindo ${file.name || 'arquivo'}...`, "info");
         const link = document.createElement('a');
-        link.href = file.url;
+        link.href = targetUrl;
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     } else {
-        showToast("Erro: URL do arquivo inválida.", "error");
-        console.error("File url missing or invalid file object", file);
+        console.error("File url missing. File object:", file);
+        // Debug para o usuário ver o que chegou
+        const debugInfo = file ? Object.keys(file).join(', ') : 'null';
+        showToast(`Erro: URL inválida. Props: ${debugInfo}`, "error");
     }
 }
 
