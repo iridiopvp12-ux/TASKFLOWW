@@ -360,6 +360,8 @@ function handleOpenFile(event) {
     const { file } = event.detail[0] || event.detail;
     if (file && file.url) {
         window.open(file.url, '_blank');
+    } else {
+        console.error("File url missing or invalid file object", file);
     }
 }
 
