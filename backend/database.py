@@ -200,8 +200,14 @@ def init_db():
                 name TEXT,
                 avatar TEXT,
                 created_by INTEGER,
-                created_at TEXT
+                created_at TEXT,
+                owner_id INTEGER
             )""")
+            # Migration check: add owner_id if missing
+            try:
+                cur.execute("ALTER TABLE chat_rooms ADD COLUMN owner_id INTEGER")
+                conn.commit()
+            except Exception: conn.rollback()
             cur.execute("""CREATE TABLE IF NOT EXISTS chat_room_members (
                 id SERIAL PRIMARY KEY,
                 room_id TEXT,

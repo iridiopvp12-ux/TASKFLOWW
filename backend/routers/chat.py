@@ -95,7 +95,7 @@ def get_rooms(current_user_id: int):
 
         # 2. GROUPS
         cur.execute("""
-            SELECT r.id, r.name, r.avatar
+            SELECT r.id, r.name, r.avatar, r.owner_id
             FROM chat_rooms r
             JOIN chat_room_members m ON r.id = m.room_id
             WHERE m.user_id = %s
@@ -159,7 +159,8 @@ def get_rooms(current_user_id: int):
                 "avatar": g['avatar'] or "https://ui-avatars.com/api/?name=G&background=random",
                 "users": members_objs,
                 "unreadCount": 0, # TODO: Implementar unread pra grupo
-                "lastMessage": last_message_obj
+                "lastMessage": last_message_obj,
+                "ownerId": g['owner_id']
             })
 
         return rooms
@@ -167,7 +168,7 @@ def get_rooms(current_user_id: int):
         conn.close()
 
 @router.post("/chat/room")
-def create_room(payload: dict = Body(...)):
+def create_room(current_user_id: int = Query(...), payload: dict = Body(...)):
     # payload: { roomName: str, users: [id, id...] }
     conn = get_db()
     try:
@@ -176,11 +177,12 @@ def create_room(payload: dict = Body(...)):
         name = payload.get('roomName', 'Novo Grupo')
         users = payload.get('users', [])
 
-        # Add creator if not in list (assumindo que o front manda users selecionados + current)
-        # Vamos garantir no backend
+        # Ensure creator is in users list
+        if current_user_id not in users:
+            users.append(current_user_id)
 
-        cur.execute("INSERT INTO chat_rooms (id, name, created_at) VALUES (%s, %s, %s)",
-                    (room_id, name, datetime.now().isoformat()))
+        cur.execute("INSERT INTO chat_rooms (id, name, created_at, owner_id) VALUES (%s, %s, %s, %s)",
+                    (room_id, name, datetime.now().isoformat(), current_user_id))
 
         for uid in users:
             try:
@@ -191,7 +193,62 @@ def create_room(payload: dict = Body(...)):
 
         conn.commit()
 
-        return {"roomId": room_id, "roomName": name, "users": users} # Front vai dar refresh ou add manual
+        return {"roomId": room_id, "roomName": name, "users": users, "ownerId": current_user_id}
+    finally:
+        conn.close()
+
+@router.put("/chat/room/{roomId}")
+def update_room(roomId: str, payload: dict = Body(...)):
+    """
+    Action: 'rename' (requires owner), 'add_member', 'remove_member' (requires owner)
+    """
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        action = payload.get('action')
+        current_user_id = payload.get('currentUserId') # Passed from front for basic check
+
+        # Verify Owner
+        cur.execute("SELECT owner_id, name FROM chat_rooms WHERE id=%s", (roomId,))
+        row = cur.fetchone()
+        if not row: return {"error": "Room not found"}
+        owner_id, current_name = row[0], row[1]
+
+        if action == 'rename':
+            if str(owner_id) != str(current_user_id):
+                return {"error": "Apenas o dono do grupo pode renomear."}
+            new_name = payload.get('roomName')
+            cur.execute("UPDATE chat_rooms SET name=%s WHERE id=%s", (new_name, roomId))
+
+        elif action == 'add_member':
+            new_user_id = payload.get('userId')
+            try:
+                cur.execute("INSERT INTO chat_room_members (room_id, user_id, joined_at) VALUES (%s, %s, %s)",
+                            (roomId, int(new_user_id), datetime.now().isoformat()))
+            except: pass # Already member
+
+        elif action == 'remove_member':
+            # Remove member (Kick)
+            if str(owner_id) != str(current_user_id):
+                 return {"error": "Apenas o dono pode remover membros."}
+            target_id = payload.get('userId')
+            if str(target_id) == str(owner_id):
+                return {"error": "O dono não pode ser removido (saia do grupo)."}
+            cur.execute("DELETE FROM chat_room_members WHERE room_id=%s AND user_id=%s", (roomId, target_id))
+
+        elif action == 'leave':
+            # Leave group (Self remove)
+            if str(owner_id) == str(current_user_id):
+                # If owner leaves, maybe assign new owner? Or just leave.
+                # Simplification: Owner cannot leave without deleting or passing ownership?
+                # User asked: "Excluir Conversa: Sair do grupo". If owner does it, maybe delete group?
+                # For now, allow owner to leave (orphaned group) or block.
+                # Let's allow, but maybe warn.
+                pass
+            cur.execute("DELETE FROM chat_room_members WHERE room_id=%s AND user_id=%s", (roomId, current_user_id))
+
+        conn.commit()
+        return {"success": True}
     finally:
         conn.close()
 
