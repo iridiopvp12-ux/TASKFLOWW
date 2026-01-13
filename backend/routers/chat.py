@@ -1,4 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, BackgroundTasks, Body, Query
+from fastapi.responses import FileResponse
 from typing import Optional, List
 import shutil
 import os
@@ -504,7 +505,10 @@ def upload_files(files: List[UploadFile] = File(...)):
 
 @router.get("/chat/download/{filename}")
 def download_file(filename: str, name: str = Query(None)):
-    path = f"frontend/uploads/{filename}"
+    # Security: Prevent Path Traversal by forcing basename
+    safe_filename = os.path.basename(filename)
+    path = f"frontend/uploads/{safe_filename}"
+
     if not os.path.exists(path):
         return {"error": "File not found"}
 
