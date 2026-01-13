@@ -88,11 +88,7 @@
                     :show-emojis="true"
                     :show-reaction-emojis="true"
                     :multiple-files="true"
-                    :menu-actions="JSON.stringify([
-                        { name: 'leaveGroup', title: 'Sair do Grupo' },
-                        { name: 'renameGroup', title: 'Renomear (Dono)' },
-                        { name: 'removeMember', title: 'Remover Membro (ID)' }
-                    ])"
+                    menu-actions='[{"name":"leaveGroup","title":"Sair do Grupo"},{"name":"renameGroup","title":"Renomear (Dono)"},{"name":"removeMember","title":"Remover Membro (ID)"}]'
                     accepted-files="*"
                 >
                 </vue-advanced-chat>
@@ -623,7 +619,7 @@
     <script src="js/dashboard.js"></script>
     <script src="js/calendar.js"></script>
     <script src="js/notifications.js"></script>
-    <script src="js/chat.js"></script>
+    <script src="js/chat.js?v=2.3"></script>
     <script src="js/audit.js"></script>
     <script src="js/recurrence.js"></script>
     <script src="js/main.js"></script>

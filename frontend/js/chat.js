@@ -426,6 +426,9 @@ function fixFileUrl(url) {
 }
 
 function handleOpenFile(event) {
+    // Prevent default behavior if possible (though event is custom)
+    if (event.preventDefault) event.preventDefault();
+
     const { file } = event.detail[0] || event.detail;
 
     // Tenta encontrar a URL em propriedades alternativas se file.url não existir
