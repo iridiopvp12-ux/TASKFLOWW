@@ -68,6 +68,29 @@ sudo docker run -d \
 
 ---
 
+## 🚀 Opção C: Docker Compose (Mais Fácil)
+Se você escolheu a VM (Opção A), esta é a forma mais simples de subir **App + Banco de Dados** com um só comando.
+
+1. **Acessar e Baixar (como na Opção A)**
+   ```bash
+   git clone https://github.com/SEU_USUARIO/SEU_REPO.git taskflow
+   cd taskflow
+   ```
+
+2. **Rodar Tudo**
+   O arquivo `docker-compose.yml` já está configurado.
+   ```bash
+   sudo docker compose up -d --build
+   ```
+
+   Isso vai:
+   - Baixar e subir um banco PostgreSQL (versão 13).
+   - Configurar usuários e senhas automaticamente.
+   - Construir e rodar o TaskFlow na porta 80.
+   - Salvar dados do banco e uploads no disco.
+
+---
+
 ## 🏃 Opção B: Google Cloud Run (Serverless)
 Escala automática, mas requer banco externo e **não salva arquivos locais permanentemente**.
 
